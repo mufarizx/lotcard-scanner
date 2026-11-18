@@ -24,6 +24,16 @@
             android:orientation="vertical"
             android:padding="24dp">
 
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="72dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="20dp"
+                android:adjustViewBounds="true"
+                android:contentDescription="Logo PT Sanwa"
+                android:scaleType="fitCenter"
+                android:src="@drawable/logo_sanwa" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -38,7 +48,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
                 android:gravity="center"
-                android:text="Masuk dengan akun Lot-Card (NIK &amp; password)"
+                android:text="Masuk dengan NIK &amp; password (akun web yang sama)"
                 android:textColor="@color/text_sm"
                 android:textSize="13sp" />
 

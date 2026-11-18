@@ -13,6 +13,8 @@ abstract class BaseActivity : AppCompatActivity() {
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.title = title
+        toolbar.setLogo(R.drawable.logo_badge) // logo perusahaan di bilah judul
+        toolbar.titleMarginStart = (12 * resources.displayMetrics.density).toInt()
         supportActionBar?.setDisplayHomeAsUpEnabled(back)
         if (back) toolbar.setNavigationOnClickListener { finish() }
     }
@@ -25,7 +27,7 @@ abstract class BaseActivity : AppCompatActivity() {
             .setMessage(
                 "Server ${prefs.labelFor(cert.baseUrl)} (${cert.baseUrl}) memakai sertifikat yang belum dikenal HP ini " +
                     "(self-signed).\n\nSidik jari SHA-256:\n${cert.fingerprint}\n\nBerlaku sampai: ${cert.validUntil}\n\n" +
-                    "Percayai HANYA kalau ini benar server Lot-Card perusahaan (sidik jari bisa dicocokkan oleh IT)."
+                    "Percayai HANYA kalau ini benar server QR-IPCS perusahaan (sidik jari bisa dicocokkan oleh IT)."
             )
             .setPositiveButton("Percayai") { _, _ ->
                 prefs.addPin(cert.fingerprint)

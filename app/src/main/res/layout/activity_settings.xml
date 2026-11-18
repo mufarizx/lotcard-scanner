@@ -117,11 +117,21 @@
                 android:layout_height="wrap_content"
                 android:text="Hapus sertifikat yang dipercaya" />
 
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:layout_marginTop="24dp"
+                android:adjustViewBounds="true"
+                android:contentDescription="Logo PT Sanwa"
+                android:scaleType="fitCenter"
+                android:src="@drawable/logo_sanwa" />
+
             <TextView
                 android:id="@+id/versionInfo"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="8dp"
+                android:gravity="center"
                 android:textColor="@color/text_sm"
                 android:textSize="11sp" />
         </LinearLayout>

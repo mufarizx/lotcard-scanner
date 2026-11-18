@@ -1,4 +1,4 @@
-# Lot-Card Scanner (Android)
+# QR-IPCS Scanner (Android)
 
 Aplikasi Android untuk scan QR produksi dan langsung melihat data Plan dari server **Lot-Card**, tanpa membuka browser.
 
@@ -25,14 +25,14 @@ Aplikasi Android untuk scan QR produksi dan langsung melihat data Plan dari serv
 - **Sertifikat self-signed:** saat pertama kali tersambung, aplikasi menampilkan sidik jari SHA-256 sertifikat server. Setelah pengguna menekan **Percayai**, sertifikat itu disimpan dan dipakai untuk alamat lokal maupun publik.
 - Alamat `http://` juga bisa, misalnya server uji `http://200.200.64.13:1313`.
 
-Butuh Android 8.0 ke atas.
+Butuh Android 8.0 ke atas. Ikon & logo: logo PT Sanwa (`app/src/main/res/mipmap-*/ic_launcher_foreground.png`, `drawable-xxxhdpi/logo_sanwa.png`, `drawable-xxxhdpi/logo_badge.png`), diambil dari `public/images/logo.png` aplikasi web.
 
 ## Membuat APK (GitHub Actions)
 
 Setiap ada perubahan di branch `main`, GitHub otomatis membuat APK. Bisa juga dijalankan manual: tab **Actions → Build APK → Run workflow**.
 
 Hasilnya bisa diunduh dari:
-- tab **Releases** → `LotCardScanner-1.0.N.apk`, atau
+- tab **Releases** → `QR-IPCS-Scanner-1.0.N.apk`, atau
 - tab **Actions** → run terakhir → **Artifacts**.
 
 Nomor versi naik sendiri setiap build, jadi APK baru bisa dipasang menimpa yang lama tanpa menghapus aplikasi.
@@ -40,7 +40,7 @@ Nomor versi naik sendiri setiap build, jadi APK baru bisa dipasang menimpa yang 
 ## Memasang di HP
 
 1. Unduh file `.apk` ke HP, lalu buka. Kalau diminta, izinkan "Pasang aplikasi tidak dikenal" untuk browser/File Manager.
-2. Buka **Lot-Card Scanner** → **Pengaturan server**:
+2. Buka **QR-IPCS Scanner** → **Pengaturan server**:
    - Alamat lokal: `https://200.200.64.4:2443`
    - Alamat publik: `https://IP-PUBLIK:PORT`
    - Tekan **Tes koneksi**, lalu **Percayai** sertifikatnya. Sebaiknya cocokkan sidik jarinya dengan yang dipegang IT.
