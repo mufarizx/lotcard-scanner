@@ -32,6 +32,25 @@ class Prefs(context: Context) {
         get() = sp.getString(KEY_USER_NIK, "") ?: ""
         set(v) = sp.edit().putString(KEY_USER_NIK, v).apply()
 
+    /** Fitur dari server (izin role): Lihat Data Plan / Input Perolehan. */
+    var canView: Boolean
+        get() = sp.getBoolean(KEY_CAN_VIEW, true)
+        set(v) = sp.edit().putBoolean(KEY_CAN_VIEW, v).apply()
+
+    var canInput: Boolean
+        get() = sp.getBoolean(KEY_CAN_INPUT, false)
+        set(v) = sp.edit().putBoolean(KEY_CAN_INPUT, v).apply()
+
+    /** Simpan data user dari jawaban login / me. */
+    fun saveUser(user: org.json.JSONObject?, fallbackNik: String = "") {
+        if (user == null) return
+        userNik = user.optString("nik").ifBlank { fallbackNik.ifBlank { userNik } }
+        userName = user.optString("name", userName)
+        val f = user.optJSONObject("features")
+        canView = f?.optBoolean("view", true) ?: true
+        canInput = f?.optBoolean("input", false) ?: false
+    }
+
     var settingsSaved: Boolean
         get() = sp.getBoolean(KEY_SETTINGS_SAVED, false)
         set(v) = sp.edit().putBoolean(KEY_SETTINGS_SAVED, v).apply()
@@ -71,6 +90,8 @@ class Prefs(context: Context) {
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_USER_NIK = "user_nik"
         private const val KEY_SETTINGS_SAVED = "settings_saved"
+        private const val KEY_CAN_VIEW = "can_view"
+        private const val KEY_CAN_INPUT = "can_input"
         private const val KEY_PINS = "pinned_fingerprints"
 
         /** "200.200.64.4:2443/" → "https://200.200.64.4:2443" */

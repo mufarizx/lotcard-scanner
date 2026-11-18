@@ -84,10 +84,8 @@ class LoginActivity : BaseActivity() {
             when (r) {
                 is ApiResult.Response -> {
                     if (r.ok && r.json.optString("token").isNotBlank()) {
-                        val user = r.json.optJSONObject("user")
                         prefs.token = r.json.getString("token")
-                        prefs.userNik = user?.optString("nik").orEmpty().ifBlank { n }
-                        prefs.userName = user?.optString("name").orEmpty()
+                        prefs.saveUser(r.json.optJSONObject("user"), n)
                         password.setText("")
                         val i = Intent(this@LoginActivity, MainActivity::class.java)
                         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)

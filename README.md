@@ -2,6 +2,19 @@
 
 Aplikasi Android untuk scan QR produksi dan langsung melihat data Plan dari server **Lot-Card**, tanpa membuka browser.
 
+## Dua fitur utama (sesuai izin akun)
+
+- **Lihat Data Plan** (izin `mobile.scan`, read-only) — scan QR → data Plan lengkap.
+- **Input Perolehan** (izin `mobile.input`, untuk operator stage **Auto**) — scan QR → form yang sama dengan form scan operator di web:
+  - Qty (Winding: Total Check OK), NG per kategori + posisi N (Winding)
+  - Penerus Shift (operator utama memilih; penerus mengisi bagiannya sendiri)
+  - Additional Material Winding (muncul bila Total Check OK > Qty Plan)
+  - parameter Assembly, catatan
+
+  Aturan simpan di server SAMA PERSIS dengan web (`AutoResultService`). Stage Manual tetap lewat web.
+
+Halaman utama menampilkan menu sesuai izin akun.
+
 ## Fitur
 
 - **Login sekali** dengan NIK + password akun Lot-Card. Login tetap aktif sampai:
@@ -79,5 +92,8 @@ Semua di `lot-card`, file `app/Http/Controllers/Api/MobileController.php`:
 | GET  | `/api/mobile/me` | cek token |
 | POST | `/api/mobile/logout` | hapus token HP ini |
 | GET  | `/api/mobile/plans/{kode}` | data Plan (lihat `app/Services/MobilePlanPresenter.php`) |
+| GET  | `/api/mobile/input/{kode}` | form input perolehan (`MobileInputPresenter.php`) |
+| POST | `/api/mobile/input/{kode}` | simpan perolehan (`AutoResultService.php`) |
+| GET  | `/api/mobile/bom-detail/{id}/lots` | lot material tersedia (Additional Material) |
 
 Tampilan data disusun server dalam bentuk "bagian" (judul, label–nilai, tabel). Jadi isi/label bisa diubah dari server tanpa build ulang aplikasi.
