@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="true" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="false"
+        android:theme="@style/Theme.LotCard">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".LoginActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".SettingsActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".PlanActivity" android:exported="false" />
+
+        <!-- Model QR ML Kit ikut di dalam APK (tidak perlu unduh dari Google Play). -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="barcode" />
+    </application>
+</manifest>

@@ -1,0 +1,83 @@
+# Lot-Card Scanner (Android)
+
+Aplikasi Android untuk scan QR produksi dan langsung melihat data Plan dari server **Lot-Card**, tanpa membuka browser.
+
+## Fitur
+
+- **Login sekali** dengan NIK + password akun Lot-Card. Login tetap aktif sampai:
+  - logout,
+  - dicabut Super Admin (menu *User → Login Aplikasi HP*),
+  - akun dinonaktifkan,
+  - password diganti, atau
+  - izin "Pakai aplikasi Scanner QR di HP" dicabut dari role-nya.
+- **Scan QR** dengan kamera belakang. Tersedia tombol senter dan pilihan **Ketik nomor** kalau QR rusak.
+  - QR produksi berisi nomor lot (mis. `26060001`).
+  - Nomor turunan (`26060001-2`) juga bisa; turunannya ditandai kuning.
+- **Data yang tampil** (disusun oleh server):
+  - ringkasan Plan;
+  - progres per stage (Winding / Assembly / Inspection): status approve, operator, Penerus Shift, OK/NG, NG per kategori, parameter;
+  - rincian per turunan;
+  - BOM & lot material;
+  - rework.
+- **Dua alamat server:**
+  - **Lokal** (Wi-Fi kantor yang satu segmen dengan server) dicoba lebih dulu.
+  - **Publik** dipakai otomatis kalau lokal tidak tersambung.
+- **Sertifikat self-signed:** saat pertama kali tersambung, aplikasi menampilkan sidik jari SHA-256 sertifikat server. Setelah pengguna menekan **Percayai**, sertifikat itu disimpan dan dipakai untuk alamat lokal maupun publik.
+- Alamat `http://` juga bisa, misalnya server uji `http://200.200.64.13:1313`.
+
+Butuh Android 8.0 ke atas.
+
+## Membuat APK (GitHub Actions)
+
+Setiap ada perubahan di branch `main`, GitHub otomatis membuat APK. Bisa juga dijalankan manual: tab **Actions → Build APK → Run workflow**.
+
+Hasilnya bisa diunduh dari:
+- tab **Releases** → `LotCardScanner-1.0.N.apk`, atau
+- tab **Actions** → run terakhir → **Artifacts**.
+
+Nomor versi naik sendiri setiap build, jadi APK baru bisa dipasang menimpa yang lama tanpa menghapus aplikasi.
+
+## Memasang di HP
+
+1. Unduh file `.apk` ke HP, lalu buka. Kalau diminta, izinkan "Pasang aplikasi tidak dikenal" untuk browser/File Manager.
+2. Buka **Lot-Card Scanner** → **Pengaturan server**:
+   - Alamat lokal: `https://200.200.64.4:2443`
+   - Alamat publik: `https://IP-PUBLIK:PORT`
+   - Tekan **Tes koneksi**, lalu **Percayai** sertifikatnya. Sebaiknya cocokkan sidik jarinya dengan yang dipegang IT.
+   - Tekan **Simpan**.
+3. Login dengan NIK & password Lot-Card, lalu arahkan kamera ke QR produksi.
+
+## Kunci tanda tangan APK
+
+APK ditandatangani dengan `signing/lotcard-scanner.jks`:
+- alias: `lotcard`
+- password: `lotcard-sanwa`
+
+**Jangan hapus atau ganti file ini.** Android hanya mau memasang update yang ditandatangani dengan kunci yang sama.
+
+Repo ini private. Kalau ingin kunci yang lebih rahasia:
+1. Buat keystore baru.
+2. Isi GitHub Secrets berikut:
+   - `LOTCARD_KEYSTORE_BASE64` (isi file .jks dalam base64)
+   - `LOTCARD_KEYSTORE_PASSWORD`
+   - `LOTCARD_KEY_ALIAS`
+   - `LOTCARD_KEY_PASSWORD`
+3. Hapus aplikasi lama dari HP, lalu pasang APK baru. Ini wajib sekali saja, karena kuncinya berganti.
+
+## Build di PC (opsional)
+
+Buka folder ini di Android Studio (Koala atau lebih baru, JDK 17), lalu pilih **Build → Build APK(s)**.
+
+## API server yang dipakai
+
+Semua di `lot-card`, file `app/Http/Controllers/Api/MobileController.php`:
+
+| Method | Path | Keterangan |
+|---|---|---|
+| GET  | `/api/mobile/ping` | cek alamat server (tanpa login) |
+| POST | `/api/mobile/login` | `nik`, `password`, `device_name` → `token` |
+| GET  | `/api/mobile/me` | cek token |
+| POST | `/api/mobile/logout` | hapus token HP ini |
+| GET  | `/api/mobile/plans/{kode}` | data Plan (lihat `app/Services/MobilePlanPresenter.php`) |
+
+Tampilan data disusun server dalam bentuk "bagian" (judul, label–nilai, tabel). Jadi isi/label bisa diubah dari server tanpa build ulang aplikasi.

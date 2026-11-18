@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ikon: bingkai scanner + kotak QR sederhana (108dp, area aman 66dp di tengah). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="4"
+        android:pathData="M30,42 L30,30 L42,30 M66,30 L78,30 L78,42 M78,66 L78,78 L66,78 M42,78 L30,78 L30,66" />
+    <path android:fillColor="#FFFFFF" android:pathData="M38,38h12v12h-12z M58,38h12v12h-12z M38,58h12v12h-12z M58,58h5v5h-5z M65,65h5v5h-5z M58,65h5v5h-5z" />
+    <path android:fillColor="#1A6FC4" android:pathData="M41,41h6v6h-6z M61,41h6v6h-6z M41,61h6v6h-6z" />
+</vector>

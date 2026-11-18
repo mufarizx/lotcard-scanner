@@ -1,0 +1,67 @@
+name: Build APK
+
+# Jalan otomatis setiap ada perubahan di branch main, atau manual lewat
+# tab Actions → Build APK → Run workflow.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Kalau secret LOTCARD_KEYSTORE_BASE64 diisi, APK ditandatangani dengan
+      # kunci itu. Kalau tidak, memakai signing/lotcard-scanner.jks di repo.
+      - name: Siapkan kunci tanda tangan (opsional)
+        env:
+          KEYSTORE_B64: ${{ secrets.LOTCARD_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "LOTCARD_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build APK
+        env:
+          LOTCARD_KEYSTORE_PASSWORD: ${{ secrets.LOTCARD_KEYSTORE_PASSWORD }}
+          LOTCARD_KEY_ALIAS: ${{ secrets.LOTCARD_KEY_ALIAS }}
+          LOTCARD_KEY_PASSWORD: ${{ secrets.LOTCARD_KEY_PASSWORD }}
+        run: |
+          # Secret kosong → pakai nilai bawaan di app/build.gradle.kts
+          [ -z "$LOTCARD_KEYSTORE_PASSWORD" ] && unset LOTCARD_KEYSTORE_PASSWORD
+          [ -z "$LOTCARD_KEY_ALIAS" ] && unset LOTCARD_KEY_ALIAS
+          [ -z "$LOTCARD_KEY_PASSWORD" ] && unset LOTCARD_KEY_PASSWORD
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/LotCardScanner-1.0.${GITHUB_RUN_NUMBER}.apk"
+          ls -la dist
+
+      - name: Simpan APK (Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: LotCardScanner-1.0.${{ github.run_number }}
+          path: dist/*.apk
+
+      - name: Terbitkan di Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v1.0.${GITHUB_RUN_NUMBER}" dist/*.apk \
+            --title "Lot-Card Scanner 1.0.${GITHUB_RUN_NUMBER}" \
+            --notes "APK otomatis dari commit ${GITHUB_SHA::7}. Unduh file .apk di bawah, lalu pasang di HP Android." \
+            --target "$GITHUB_SHA" \
+          || gh release upload "v1.0.${GITHUB_RUN_NUMBER}" dist/*.apk --clobber

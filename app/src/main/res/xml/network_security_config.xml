@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- http:// diizinkan untuk server uji di jaringan lokal (mis. http://200.200.64.13:1313).
+     Sertifikat https self-signed dipercaya lewat sidik jari yang disetujui
+     pengguna di aplikasi (lihat Net.kt), bukan di sini. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
