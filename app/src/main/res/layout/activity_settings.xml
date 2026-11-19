@@ -27,7 +27,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                android:text="Aplikasi mencoba alamat LOKAL dulu (Wi-Fi kantor yang satu jaringan dengan server). Kalau tidak tersambung, otomatis memakai alamat PUBLIK."
+                android:text="Aplikasi mencoba IP local dulu (Wi-Fi pabrik yang satu jaringan dengan server). Kalau tidak tersambung, otomatis memakai IP public."
                 android:textColor="@color/text_sm"
                 android:textSize="13sp" />
 
@@ -35,7 +35,7 @@
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Alamat lokal"
+                android:hint="IP local"
                 app:helperText="Contoh: https://200.200.64.4:2443">
 
                 <com.google.android.material.textfield.TextInputEditText
@@ -50,7 +50,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:hint="Alamat publik (boleh kosong)"
+                android:hint="IP public (boleh kosong)"
                 app:helperText="Contoh: https://IP-PUBLIK:PORT">
 
                 <com.google.android.material.textfield.TextInputEditText
@@ -115,7 +115,7 @@
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Hapus sertifikat yang dipercaya" />
+                android:text="Delete trusted certificate" />
 
             <ImageView
                 android:layout_width="match_parent"
