@@ -65,7 +65,7 @@ class ScanActivity : BaseActivity() {
         setContentView(R.layout.activity_scan)
         setupToolbar(if (mode == MODE_INPUT) "Scan — Input Perolehan" else "Scan — Lihat Data", back = true)
         findViewById<TextView>(R.id.scanHint).text =
-            if (mode == MODE_INPUT) "Scan QR Plan yang akan diinput perolehannya" else "Arahkan kamera ke QR produksi"
+            if (mode == MODE_INPUT) "Scan QR Plan yang akan diinput perolehannya" else "Arahkan kamera ke QR"
 
         previewView = findViewById(R.id.previewView)
         permissionText = findViewById(R.id.permissionText)
