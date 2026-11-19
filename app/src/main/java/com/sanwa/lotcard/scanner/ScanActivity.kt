@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class ScanActivity : BaseActivity() {
     private var mode: String = MODE_VIEW
+    override val darkFooter: Boolean = true
 
     private lateinit var previewView: PreviewView
     private lateinit var permissionText: TextView

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Sanwa Production App</string>
+    <!-- Kredit di bagian bawah semua halaman -->
+    <string name="footer_credit">Created by Fachru - IT PTS</string>
 </resources>
