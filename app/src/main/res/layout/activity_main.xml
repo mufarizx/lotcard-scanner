@@ -60,7 +60,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Lihat Data Plan"
+                        android:text="Lihat Data QR"
                         android:textColor="@color/brand"
                         android:textSize="20sp"
                         android:textStyle="bold" />
@@ -69,7 +69,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="Scan QR produksi untuk melihat data Plan (hanya baca)."
+                        android:text="Scan QR IPCS untuk melihat data Plan (Read-Only)."
                         android:textColor="@color/text_sm"
                         android:textSize="13sp" />
                 </LinearLayout>
@@ -104,7 +104,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="Scan QR Plan, lalu isi perolehan produksi (Qty, NG, Penerus Shift)."
+                        android:text="Scan QR Plan, lalu input perolehan (Qty, NG, Penerus Shift)."
                         android:textColor="@color/text_sm"
                         android:textSize="13sp" />
                 </LinearLayout>
