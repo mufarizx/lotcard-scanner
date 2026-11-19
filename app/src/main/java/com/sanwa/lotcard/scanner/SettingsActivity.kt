@@ -45,7 +45,7 @@ class SettingsActivity : BaseActivity() {
         findViewById<MaterialButton>(R.id.btnClearPins).setOnClickListener {
             prefs.pinnedFingerprints = emptySet()
             showPins()
-            Toast.makeText(this, "Daftar sertifikat yang dipercaya dikosongkan.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Daftar trusted certificate dikosongkan.", Toast.LENGTH_SHORT).show()
         }
         showPins()
     }
