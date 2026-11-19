@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Kamera scanner QR. Mode (EXTRA_MODE):
  *  - MODE_VIEW  → hasil scan dibuka di PlanActivity (Lihat Data Plan, read-only)
  *  - MODE_INPUT → hasil scan dibuka di InputActivity (Input Perolehan operator)
+ *  - MODE_MANUAL → hasil scan dibuka di ManualInputActivity (Input Manual Assembly/Inspection)
  */
 class ScanActivity : BaseActivity() {
     private var mode: String = MODE_VIEW
@@ -61,11 +62,25 @@ class ScanActivity : BaseActivity() {
             goToLogin(null)
             return
         }
-        mode = if (intent.getStringExtra(EXTRA_MODE) == MODE_INPUT) MODE_INPUT else MODE_VIEW
+        mode = when (intent.getStringExtra(EXTRA_MODE)) {
+            MODE_INPUT -> MODE_INPUT
+            MODE_MANUAL -> MODE_MANUAL
+            else -> MODE_VIEW
+        }
         setContentView(R.layout.activity_scan)
-        setupToolbar(if (mode == MODE_INPUT) "Scan — Input Perolehan" else "Scan — Lihat Data", back = true)
-        findViewById<TextView>(R.id.scanHint).text =
-            if (mode == MODE_INPUT) "Scan QR Plan yang akan diinput perolehannya" else "Arahkan kamera ke QR"
+        setupToolbar(
+            when (mode) {
+                MODE_INPUT -> "Scan — Input Perolehan"
+                MODE_MANUAL -> "Scan — Input Manual"
+                else -> "Scan — Lihat Data"
+            },
+            back = true
+        )
+        findViewById<TextView>(R.id.scanHint).text = when (mode) {
+            MODE_INPUT -> "Scan QR Plan yang akan diinput perolehannya"
+            MODE_MANUAL -> "Scan QR Plan Assembly/Inspection Manual"
+            else -> "Arahkan kamera ke QR"
+        }
 
         previewView = findViewById(R.id.previewView)
         permissionText = findViewById(R.id.permissionText)
@@ -167,7 +182,11 @@ class ScanActivity : BaseActivity() {
             handled.set(false)
             return
         }
-        val target = if (mode == MODE_INPUT) InputActivity::class.java else PlanActivity::class.java
+        val target = when (mode) {
+            MODE_INPUT -> InputActivity::class.java
+            MODE_MANUAL -> ManualInputActivity::class.java
+            else -> PlanActivity::class.java
+        }
         startActivity(Intent(this, target).putExtra(PlanActivity.EXTRA_CODE, code))
     }
 
@@ -200,5 +219,6 @@ class ScanActivity : BaseActivity() {
         const val EXTRA_MODE = "mode"
         const val MODE_VIEW = "view"
         const val MODE_INPUT = "input"
+        const val MODE_MANUAL = "manual"
     }
 }

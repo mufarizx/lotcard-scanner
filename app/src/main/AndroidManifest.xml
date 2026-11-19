@@ -28,6 +28,7 @@
         <activity android:name=".ScanActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PlanActivity" android:exported="false" />
         <activity android:name=".InputActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ManualInputActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
 
         <!-- Model QR ML Kit ikut di dalam APK (tidak perlu unduh dari Google Play). -->
         <meta-data

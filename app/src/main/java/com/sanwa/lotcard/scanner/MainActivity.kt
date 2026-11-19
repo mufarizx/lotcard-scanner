@@ -12,11 +12,12 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 
-/** Halaman utama: pilih fitur Lihat Data Plan / Input Perolehan (sesuai izin akun). */
+/** Halaman utama: pilih fitur Lihat Data Plan / Input Perolehan / Input Manual (sesuai izin akun). */
 class MainActivity : BaseActivity() {
     private lateinit var welcome: TextView
     private lateinit var cardView: MaterialCardView
     private lateinit var cardInput: MaterialCardView
+    private lateinit var cardManual: MaterialCardView
     private lateinit var noFeature: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,10 +33,12 @@ class MainActivity : BaseActivity() {
         welcome = findViewById(R.id.welcome)
         cardView = findViewById(R.id.cardView)
         cardInput = findViewById(R.id.cardInput)
+        cardManual = findViewById(R.id.cardManual)
         noFeature = findViewById(R.id.noFeature)
 
         cardView.setOnClickListener { openScanner(ScanActivity.MODE_VIEW) }
         cardInput.setOnClickListener { openScanner(ScanActivity.MODE_INPUT) }
+        cardManual.setOnClickListener { openScanner(ScanActivity.MODE_MANUAL) }
         refreshMenu()
         verifySession()
     }
@@ -49,7 +52,8 @@ class MainActivity : BaseActivity() {
         welcome.text = "Halo, ${prefs.userName}\nNIK ${prefs.userNik}"
         cardView.visibility = if (prefs.canView) View.VISIBLE else View.GONE
         cardInput.visibility = if (prefs.canInput) View.VISIBLE else View.GONE
-        noFeature.visibility = if (!prefs.canView && !prefs.canInput) View.VISIBLE else View.GONE
+        cardManual.visibility = if (prefs.canManual) View.VISIBLE else View.GONE
+        noFeature.visibility = if (!prefs.canView && !prefs.canInput && !prefs.canManual) View.VISIBLE else View.GONE
     }
 
     private fun openScanner(mode: String) {
