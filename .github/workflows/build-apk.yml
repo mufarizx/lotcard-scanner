@@ -47,13 +47,13 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/QR-IPCS-Scanner-1.0.${GITHUB_RUN_NUMBER}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "dist/Sanwa-Production-App-1.0.${GITHUB_RUN_NUMBER}.apk"
           ls -la dist
 
       - name: Simpan APK (Artifacts)
         uses: actions/upload-artifact@v4
         with:
-          name: QR-IPCS-Scanner-1.0.${{ github.run_number }}
+          name: Sanwa-Production-App-1.0.${{ github.run_number }}
           path: dist/*.apk
 
       - name: Terbitkan di Releases
@@ -61,7 +61,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "v1.0.${GITHUB_RUN_NUMBER}" dist/*.apk \
-            --title "QR-IPCS Scanner 1.0.${GITHUB_RUN_NUMBER}" \
+            --title "Sanwa Production App 1.0.${GITHUB_RUN_NUMBER}" \
             --notes "APK otomatis dari commit ${GITHUB_SHA::7}. Unduh file .apk di bawah, lalu pasang di HP Android." \
             --target "$GITHUB_SHA" \
           || gh release upload "v1.0.${GITHUB_RUN_NUMBER}" dist/*.apk --clobber

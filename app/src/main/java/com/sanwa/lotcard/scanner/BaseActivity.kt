@@ -55,7 +55,7 @@ abstract class BaseActivity : AppCompatActivity() {
             .setMessage(
                 "Server ${prefs.labelFor(cert.baseUrl)} (${cert.baseUrl}) memakai sertifikat yang belum dikenal HP ini " +
                     "(self-signed).\n\nSidik jari SHA-256:\n${cert.fingerprint}\n\nBerlaku sampai: ${cert.validUntil}\n\n" +
-                    "Percayai HANYA kalau ini benar server QR-IPCS perusahaan (sidik jari bisa dicocokkan oleh IT)."
+                    "Percayai HANYA kalau ini benar server produksi perusahaan (sidik jari bisa dicocokkan oleh IT)."
             )
             .setPositiveButton("Percayai") { _, _ ->
                 prefs.addPin(cert.fingerprint)

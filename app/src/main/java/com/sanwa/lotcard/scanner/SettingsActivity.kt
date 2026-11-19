@@ -103,8 +103,8 @@ class SettingsActivity : BaseActivity() {
                 }
                 lines += when (r) {
                     is ApiResult.Response ->
-                        if (r.ok && r.json.optString("app") == "lot-card") "✓ $label ($url): tersambung ke server QR-IPCS."
-                        else "✗ $label ($url): server menjawab, tapi bukan API QR-IPCS (kode ${r.code}). Periksa alamat/port."
+                        if (r.ok && r.json.optString("app") == "lot-card") "✓ $label ($url): tersambung ke server produksi."
+                        else "✗ $label ($url): server menjawab, tapi bukan server produksi Sanwa (kode ${r.code}). Periksa alamat/port."
                     is ApiResult.UntrustedCert -> "✗ $label ($url): sertifikat belum dipercaya."
                     is ApiResult.NetworkError -> "✗ $label ($url): tidak tersambung."
                 }
@@ -123,7 +123,7 @@ class SettingsActivity : BaseActivity() {
             .setMessage(
                 "Server ${cert.baseUrl} memakai sertifikat yang belum dikenal HP ini (self-signed).\n\n" +
                     "Sidik jari SHA-256:\n${cert.fingerprint}\n\nBerlaku sampai: ${cert.validUntil}\n\n" +
-                    "Percayai HANYA kalau ini benar server QR-IPCS perusahaan."
+                    "Percayai HANYA kalau ini benar server produksi perusahaan."
             )
             .setPositiveButton("Percayai") { _, _ ->
                 prefs.addPin(cert.fingerprint)
