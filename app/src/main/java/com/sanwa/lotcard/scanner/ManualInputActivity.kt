@@ -414,6 +414,19 @@ class ManualInputActivity : BaseActivity() {
             val d = details.optJSONObject(i) ?: continue
             box.addView(label("${d.optString("item_code")}  ${d.optString("item_name")}", 13f, Color.parseColor("#1A6FC4"), true)
                 .apply { setPadding(0, dp(10), 0, dp(2)) })
+            // Coil hasil Winding: lot = No. IPCS, otomatis (tidak bisa diubah).
+            if (d.optBoolean("auto")) {
+                val lots = d.optJSONArray("lots") ?: JSONArray()
+                val v = if (lots.length() > 0) lots.optString(0) else code
+                box.addView(EditText(this).apply {
+                    setText(v)
+                    isEnabled = false
+                    setSingleLine()
+                    tag = "auto_lot"
+                })
+                box.addView(label("Lot otomatis dari No. IPCS", 11f, Color.parseColor("#6B7280")))
+                continue
+            }
             val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             box.addView(col)
             val add = smallButton("+ Tambah lot")
@@ -436,6 +449,7 @@ class ManualInputActivity : BaseActivity() {
             setLotRemoveVisible(false)
             return
         }
+        if (lotGroups.isEmpty()) return // hanya Coil (lot otomatis)
         // Sama dengan web: lot yang sudah tersimpan dikunci dulu → tombol Edit.
         val save = MaterialButton(this).apply { text = "Simpan Lot"; isAllCaps = false }
         val edit = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply { text = "Edit Lot"; isAllCaps = false }
