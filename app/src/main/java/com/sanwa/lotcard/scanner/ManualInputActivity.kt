@@ -36,6 +36,9 @@ import java.util.Locale
  *  - Qty OK = Total Check OK − total NG.
  * Data form: GET /api/mobile/manual/{kode}?stage=… ;
  * simpan: POST /api/mobile/manual/{kode} (submit=true → sekaligus Submit).
+ * Lot Material Assembly (sama dengan web): POST …/{kode}/lots, pilih/ganti
+ * BOM (Admin): POST …/{kode}/bom. Lot yang belum disimpan ikut tersimpan
+ * saat menekan Simpan / Simpan & Submit.
  */
 class ManualInputActivity : BaseActivity() {
     private lateinit var content: LinearLayout
@@ -59,6 +62,17 @@ class ManualInputActivity : BaseActivity() {
     private var ngBox: LinearLayout? = null
     private var checkInput: EditText? = null
     private var summary: TextView? = null
+
+    // Lot Material (Assembly)
+    private val lotGroups = mutableListOf<LotGroup>()
+    private var lotsDirty = false
+    private var maxLots = 10
+    private var lotSaveBtn: MaterialButton? = null
+    private var lotEditBtn: MaterialButton? = null
+
+    private inner class LotGroup(val detailId: Int, val box: LinearLayout, val addBtn: MaterialButton) {
+        val inputs = mutableListOf<EditText>()
+    }
 
     private inner class StepRow(val order: Int, val label: String, val saved: Boolean, val needsMachine: Boolean) {
         lateinit var done: CheckBox
@@ -216,7 +230,9 @@ class ManualInputActivity : BaseActivity() {
     private fun render(json: JSONObject) {
         content.removeAllViews()
         errorBox.visibility = View.GONE
-        steps.clear(); ngRows.clear()
+        steps.clear(); ngRows.clear(); lotGroups.clear()
+        lotsDirty = false
+        lotSaveBtn = null; lotEditBtn = null
 
         val plan = json.optJSONObject("plan") ?: JSONObject()
         stage = json.optString("stage")
@@ -308,6 +324,9 @@ class ManualInputActivity : BaseActivity() {
             box.addView(row(weighted(dBtn, 1.3f, dp(6)), weighted(sBtn, 1f, dp(6)), apply))
         }
 
+        // Lot Material (Assembly saja)
+        json.optJSONObject("materials")?.let { buildMaterials(it) }
+
         // Sub-proses
         content.addView(label("1. Sub-proses", 16f, bold = true).apply { setPadding(dp(4), dp(6), 0, dp(6)) })
         for (i in 0 until stepArr.length()) {
@@ -349,6 +368,168 @@ class ManualInputActivity : BaseActivity() {
         }
         recalc()
         scroll.scrollTo(0, 0)
+    }
+
+    // ── Lot Material ──────────────────────────────────────────────────
+    private fun buildMaterials(m: JSONObject) {
+        val matLocked = m.optBoolean("locked") || locked
+        maxLots = m.optInt("max_lots", 10)
+        val box = card(Color.parseColor("#F5F3FF"))
+        box.addView(label("Lot Material", 16f, Color.parseColor("#5B21B6"), true))
+
+        val bom = m.optJSONObject("bom")
+        if (bom != null) {
+            box.addView(label("BOM: ${bom.optString("code")} — ${bom.optString("name")}", 13f, Color.parseColor("#374151")).apply { setPadding(0, dp(2), 0, dp(4)) })
+        } else {
+            box.addView(label(m.optString("message"), 13f, Color.parseColor("#DC2626")).apply { setPadding(0, dp(2), 0, dp(4)) })
+        }
+
+        // Pilih / ganti BOM (Admin saja).
+        val opts = m.optJSONArray("bom_options") ?: JSONArray()
+        if (m.optBoolean("can_choose_bom") && opts.length() > 0) {
+            val list = (0 until opts.length()).mapNotNull { i ->
+                opts.optJSONObject(i)?.let { PickOption(it.optInt("id").toString(), "${it.optString("code")} — ${it.optString("name")}") }
+            }
+            val b = pickButton(if (bom == null) "Pilih BOM Assembly" else "Ganti BOM Assembly")
+            b.setOnClickListener {
+                PickerDialog.show(this, "BOM Assembly", list) { p ->
+                    if (bom != null && p.value == bom.optInt("id").toString()) return@show
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle(if (bom == null) "Pilih BOM" else "Ganti BOM")
+                        .setMessage("Set BOM Assembly ke ${p.label}?" +
+                            (if (bom != null) "\n\nLot material milik BOM lama akan dihapus." else "") +
+                            "\n\nIsian lain di halaman ini yang belum disimpan akan hilang.")
+                        .setPositiveButton("Ya") { _, _ -> postMaterial("bom", JSONObject().put("bom_assembly_id", p.value.toInt()), "BOM") }
+                        .setNegativeButton("Batal", null)
+                        .show()
+                }
+            }
+            box.addView(b)
+        }
+
+        val details = m.optJSONArray("details") ?: JSONArray()
+        if (details.length() == 0) return
+        var anySaved = false
+        for (i in 0 until details.length()) {
+            val d = details.optJSONObject(i) ?: continue
+            box.addView(label("${d.optString("item_code")}  ${d.optString("item_name")}", 13f, Color.parseColor("#1A6FC4"), true)
+                .apply { setPadding(0, dp(10), 0, dp(2)) })
+            val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            box.addView(col)
+            val add = smallButton("+ Tambah lot")
+            val g = LotGroup(d.optInt("id"), col, add)
+            val lots = d.optJSONArray("lots") ?: JSONArray()
+            if (lots.length() > 0) anySaved = true
+            for (j in 0 until lots.length()) addLotInput(g, lots.optString(j))
+            if (lots.length() == 0) addLotInput(g, "")
+            add.setOnClickListener {
+                if (g.inputs.size < maxLots) { addLotInput(g, "").requestFocus(); lotsDirty = true }
+                syncLotAdd(g)
+            }
+            box.addView(add)
+            lotGroups += g
+            syncLotAdd(g)
+        }
+
+        if (matLocked) {
+            lotGroups.forEach { g -> g.addBtn.visibility = View.GONE; g.inputs.forEach { it.isEnabled = false } }
+            setLotRemoveVisible(false)
+            return
+        }
+        // Sama dengan web: lot yang sudah tersimpan dikunci dulu → tombol Edit.
+        val save = MaterialButton(this).apply { text = "Simpan Lot"; isAllCaps = false }
+        val edit = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply { text = "Edit Lot"; isAllCaps = false }
+        save.setOnClickListener { saveLotsOnly() }
+        edit.setOnClickListener { setLotsEditable(true) }
+        box.addView(row(weighted(edit, 1f, dp(6)), weighted(save, 1f)))
+        lotSaveBtn = save
+        lotEditBtn = edit
+        setLotsEditable(!anySaved)
+    }
+
+    private fun addLotInput(g: LotGroup, value: String): EditText {
+        val e = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            filters = arrayOf(InputFilter.LengthFilter(100))
+            setSingleLine()
+            hint = "Nomor lot"
+            setText(value)
+        }
+        afterChange(e) { lotsDirty = true }
+        val del = smallButton("Hapus").apply {
+            setTextColor(Color.parseColor("#DC2626"))
+            tag = "lot_remove"
+        }
+        val line = row(weighted(e, 1f, dp(6)), del)
+        del.setOnClickListener {
+            if (g.inputs.size <= 1) { e.setText("") } else {
+                g.box.removeView(line)
+                g.inputs.remove(e)
+            }
+            lotsDirty = true
+            syncLotAdd(g)
+        }
+        g.box.addView(line)
+        g.inputs += e
+        return e
+    }
+
+    private fun syncLotAdd(g: LotGroup) {
+        g.addBtn.isEnabled = g.inputs.size < maxLots && g.inputs.firstOrNull()?.isEnabled != false
+    }
+
+    private fun setLotRemoveVisible(visible: Boolean) {
+        for (g in lotGroups) for (i in 0 until g.box.childCount) {
+            val line = g.box.getChildAt(i) as? ViewGroup ?: continue
+            for (j in 0 until line.childCount) {
+                val v = line.getChildAt(j)
+                if (v.tag == "lot_remove") v.visibility = if (visible) View.VISIBLE else View.GONE
+            }
+        }
+    }
+
+    private fun setLotsEditable(editable: Boolean) {
+        lotGroups.forEach { g -> g.inputs.forEach { it.isEnabled = editable }; g.addBtn.visibility = if (editable) View.VISIBLE else View.GONE; syncLotAdd(g) }
+        setLotRemoveVisible(editable)
+        lotSaveBtn?.visibility = if (editable) View.VISIBLE else View.GONE
+        lotEditBtn?.visibility = if (editable) View.GONE else View.VISIBLE
+    }
+
+    private fun lotsBody(): JSONObject {
+        val lots = JSONObject()
+        for (g in lotGroups) {
+            val arr = JSONArray()
+            g.inputs.map { it.text.toString().trim() }.filter { it.isNotEmpty() }.distinct().forEach { arr.put(it) }
+            lots.put(g.detailId.toString(), arr)
+        }
+        return JSONObject().put("lots", lots)
+    }
+
+    private fun saveLotsOnly() = postMaterial("lots", lotsBody(), "Lot material")
+
+    /** POST …/lots atau …/bom, lalu muat ulang form. */
+    private fun postMaterial(path: String, body: JSONObject, what: String) {
+        setButtons(false)
+        progress.visibility = View.VISIBLE
+        lifecycleScope.launch {
+            val r = api.call("POST", "/api/mobile/manual/" + Uri.encode(code) + "/" + path, body)
+            progress.visibility = View.GONE
+            setButtons(true)
+            when (r) {
+                is ApiResult.Response -> when {
+                    r.ok -> MaterialAlertDialogBuilder(this@ManualInputActivity)
+                        .setTitle("Tersimpan")
+                        .setMessage(r.message)
+                        .setCancelable(false)
+                        .setPositiveButton("OK") { _, _ -> load() }
+                        .show()
+                    r.code == 401 -> goToLogin(r.message)
+                    else -> showMessage("$what belum tersimpan", errorDetail(r.json, r.message))
+                }
+                is ApiResult.UntrustedCert -> askTrustCertificate(r) { postMaterial(path, body, what) }
+                is ApiResult.NetworkError -> showMessage("$what belum tersimpan", r.message)
+            }
+        }
     }
 
     private fun buildStep(s: JSONObject) {
@@ -579,6 +760,22 @@ class ManualInputActivity : BaseActivity() {
         setButtons(false)
         progress.visibility = View.VISIBLE
         lifecycleScope.launch {
+            // Lot material yang diubah tapi belum disimpan ikut disimpan dulu.
+            if (lotsDirty && lotGroups.isNotEmpty() && lotSaveBtn?.visibility == View.VISIBLE) {
+                val lr = api.call("POST", "/api/mobile/manual/" + Uri.encode(code) + "/lots", lotsBody())
+                if (!(lr is ApiResult.Response && lr.ok)) {
+                    progress.visibility = View.GONE
+                    setButtons(true)
+                    val msg = when (lr) {
+                        is ApiResult.Response -> errorDetail(lr.json, lr.message)
+                        is ApiResult.NetworkError -> lr.message
+                        is ApiResult.UntrustedCert -> "Sertifikat server belum dipercaya."
+                    }
+                    showMessage("Lot material belum tersimpan", msg + "\n\nIsian lain belum dikirim.")
+                    return@launch
+                }
+                lotsDirty = false
+            }
             val r = api.call("POST", "/api/mobile/manual/" + Uri.encode(code), body)
             progress.visibility = View.GONE
             setButtons(true)
