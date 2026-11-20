@@ -556,7 +556,21 @@ class ManualInputActivity : BaseActivity() {
             textSize = 15f
             setTypeface(typeface, Typeface.BOLD)
             isChecked = st.saved
-            isEnabled = !st.saved
+        }
+        // Sub-proses opsional (20 Nov 2026): tidak semua produk melewati semua
+        // sub-proses. Yang tidak dicentang = tidak dilalui; centang sub-proses
+        // yang sudah tersimpan boleh dihapus (isinya dikosongkan saat disimpan).
+        if (st.saved) {
+            st.done.setOnCheckedChangeListener { cb, checked ->
+                if (checked || locked) return@setOnCheckedChangeListener
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("Tidak dilalui?")
+                    .setMessage("Sub-proses \"${st.order}. ${st.label}\" sudah tersimpan.\n\nHapus centang = sub-proses ini dianggap TIDAK DILALUI dan isinya dikosongkan saat disimpan.")
+                    .setPositiveButton("Ya, hapus centang", null)
+                    .setNegativeButton("Batal") { _, _ -> cb.isChecked = true }
+                    .setOnCancelListener { cb.isChecked = true }
+                    .show()
+            }
         }
         val savedTag = label(if (st.saved) "✓ tersimpan" else "", 12f, Color.parseColor("#16A34A"))
         box.addView(row(weighted(st.done, 1f), savedTag))
@@ -732,6 +746,10 @@ class ManualInputActivity : BaseActivity() {
             if (r.position.isBlank()) return null to "NG: pilih Posisi (sub-proses) untuk setiap baris NG (atau hapus barisnya)."
             if (r.categoryId.isBlank()) return null to "NG: pilih kategori untuk setiap baris NG (atau hapus barisnya)."
             if (q <= 0) return null to "NG: qty NG wajib diisi (lebih dari 0)."
+            val posStep = steps.firstOrNull { it.order.toString() == r.position }
+            if (posStep != null && !posStep.done.isChecked) {
+                return null to "NG di posisi ${posStep.order}. ${posStep.label}, padahal sub-proses itu tidak dicentang Selesai. Centang sub-prosesnya atau ganti posisi NG."
+            }
             ng.put(JSONObject().put("position", r.position.toInt()).put("category_id", r.categoryId.toInt()).put("qty", q))
         }
         body.put("ng", ng)
@@ -745,8 +763,8 @@ class ManualInputActivity : BaseActivity() {
             return
         }
         val notDone = steps.filter { !it.done.isChecked }.map { "${it.order}. ${it.label}" }
-        if (notDone.isNotEmpty()) {
-            showMessage("Belum lengkap", "Sub-proses berikut belum dicentang Selesai:\n" + notDone.joinToString("\n"))
+        if (notDone.size == steps.size) {
+            showMessage("Belum lengkap", "Centang Selesai minimal 1 sub-proses.")
             return
         }
         if (checkInput?.text.isNullOrBlank()) {
@@ -755,7 +773,9 @@ class ManualInputActivity : BaseActivity() {
         }
         MaterialAlertDialogBuilder(this)
             .setTitle("Simpan & Submit")
-            .setMessage("Total Check OK ${checkInput?.text}\n${summary?.text}\n\nKirim ke Admin untuk approval?")
+            .setMessage("Total Check OK ${checkInput?.text}\n${summary?.text}" +
+                (if (notDone.isNotEmpty()) "\n\nTidak dilalui (tidak dicentang):\n" + notDone.joinToString("\n") else "") +
+                "\n\nKirim ke Admin untuk approval?")
             .setPositiveButton("Kirim") { _, _ -> send(body) }
             .setNegativeButton("Batal", null)
             .show()
