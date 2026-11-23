@@ -46,6 +46,41 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_CAN_MANUAL, false)
         set(v) = sp.edit().putBoolean(KEY_CAN_MANUAL, v).apply()
 
+    /** Cetak QR (printer thermal Bluetooth) — dari server, default ya. */
+    var canPrint: Boolean
+        get() = sp.getBoolean(KEY_CAN_PRINT, true)
+        set(v) = sp.edit().putBoolean(KEY_CAN_PRINT, v).apply()
+
+    // ── Printer label Bluetooth (Iware MP-581RL / ESC/POS 58 mm) ─────────
+    /** Alamat MAC printer Bluetooth yang dipilih (sudah di-pair di Android). */
+    var printerAddress: String
+        get() = sp.getString(KEY_PRINTER_ADDR, "") ?: ""
+        set(v) = sp.edit().putString(KEY_PRINTER_ADDR, v).apply()
+
+    var printerName: String
+        get() = sp.getString(KEY_PRINTER_NAME, "") ?: ""
+        set(v) = sp.edit().putString(KEY_PRINTER_NAME, v).apply()
+
+    /** Jarak tepi kiri area cetak ke label (mm). Default 18 = label 30 mm rata kanan area cetak 48 mm (sama dengan cetak RawBT dari web). */
+    var printerOffsetMm: Float
+        get() = sp.getFloat(KEY_PRINTER_OFFSET, 18f)
+        set(v) = sp.edit().putFloat(KEY_PRINTER_OFFSET, v).apply()
+
+    /** Geser cetakan ke bawah (mm) di awal label — untuk kalibrasi posisi vertikal. */
+    var printerTopMm: Float
+        get() = sp.getFloat(KEY_PRINTER_TOP, 0f)
+        set(v) = sp.edit().putFloat(KEY_PRINTER_TOP, v).apply()
+
+    /** Jarak antar label (gap) dalam mm — dimajukan setelah tiap label. */
+    var printerGapMm: Float
+        get() = sp.getFloat(KEY_PRINTER_GAP, 2f)
+        set(v) = sp.edit().putFloat(KEY_PRINTER_GAP, v).apply()
+
+    /** true = kirim perintah "cari label berikutnya" (GS FF) setelah cetak, bukan maju sejauh gap. */
+    var printerUseGsFf: Boolean
+        get() = sp.getBoolean(KEY_PRINTER_GSFF, false)
+        set(v) = sp.edit().putBoolean(KEY_PRINTER_GSFF, v).apply()
+
     /** Simpan data user dari jawaban login / me. */
     fun saveUser(user: org.json.JSONObject?, fallbackNik: String = "") {
         if (user == null) return
@@ -55,6 +90,7 @@ class Prefs(context: Context) {
         canView = f?.optBoolean("view", true) ?: true
         canInput = f?.optBoolean("input", false) ?: false
         canManual = f?.optBoolean("manual", false) ?: false
+        canPrint = f?.optBoolean("print", true) ?: true
     }
 
     var settingsSaved: Boolean
@@ -99,6 +135,13 @@ class Prefs(context: Context) {
         private const val KEY_CAN_VIEW = "can_view"
         private const val KEY_CAN_INPUT = "can_input"
         private const val KEY_CAN_MANUAL = "can_manual"
+        private const val KEY_CAN_PRINT = "can_print"
+        private const val KEY_PRINTER_ADDR = "printer_addr"
+        private const val KEY_PRINTER_NAME = "printer_name"
+        private const val KEY_PRINTER_OFFSET = "printer_offset_mm"
+        private const val KEY_PRINTER_TOP = "printer_top_mm"
+        private const val KEY_PRINTER_GAP = "printer_gap_mm"
+        private const val KEY_PRINTER_GSFF = "printer_gsff"
         private const val KEY_PINS = "pinned_fingerprints"
 
         /** "200.200.64.4:2443/" → "https://200.200.64.4:2443" */

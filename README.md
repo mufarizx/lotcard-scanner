@@ -8,6 +8,7 @@ Aplikasi Android untuk scan QR produksi dan langsung melihat data Plan dari serv
 
 - **Lihat Data Plan** (izin `mobile.scan`, read-only) — scan QR → data Plan lengkap.
 - **Input Manual** (izin `mobile.manual`: Input Manual, Operator Subcont, Admin) — scan QR → lembar Assembly/Inspection Manual: NIK, tanggal/shift, mesin & parameter per sub-proses, Total Check OK, NG per kategori + posisi, dan Lot Material Assembly (Admin juga bisa memilih/mengganti BOM). Simpan (draft) atau Simpan & Submit.
+- **Cetak QR** — scan QR Plan → label QR tiap stage (sama dengan Print Card di web, 30 × 20 mm) → cetak ke printer thermal Bluetooth 58 mm ESC/POS (diuji untuk Iware MP-581RL). Pair printer di Pengaturan Bluetooth HP dulu; posisi label bisa dikalibrasi di **Atur printer** (geser kanan/bawah, gap, Tes cetak).
 - **Input Perolehan** (izin `mobile.input`, untuk operator stage **Auto**) — scan QR → form yang sama dengan form scan operator di web:
   - Qty (Winding: Total Check OK), NG per kategori + posisi N (Winding)
   - Penerus Shift (operator utama memilih; penerus mengisi bagiannya sendiri)

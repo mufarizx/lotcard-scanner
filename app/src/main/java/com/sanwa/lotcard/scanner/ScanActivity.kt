@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *  - MODE_VIEW  → hasil scan dibuka di PlanActivity (Lihat Data Plan, read-only)
  *  - MODE_INPUT → hasil scan dibuka di InputActivity (Input Perolehan operator)
  *  - MODE_MANUAL → hasil scan dibuka di ManualInputActivity (Input Manual Assembly/Inspection)
+ *  - MODE_PRINT → hasil scan dibuka di PrintActivity (Cetak QR ke printer Bluetooth)
  */
 class ScanActivity : BaseActivity() {
     private var mode: String = MODE_VIEW
@@ -65,6 +66,7 @@ class ScanActivity : BaseActivity() {
         mode = when (intent.getStringExtra(EXTRA_MODE)) {
             MODE_INPUT -> MODE_INPUT
             MODE_MANUAL -> MODE_MANUAL
+            MODE_PRINT -> MODE_PRINT
             else -> MODE_VIEW
         }
         setContentView(R.layout.activity_scan)
@@ -72,6 +74,7 @@ class ScanActivity : BaseActivity() {
             when (mode) {
                 MODE_INPUT -> "Scan — Input Perolehan"
                 MODE_MANUAL -> "Scan — Input Manual"
+                MODE_PRINT -> "Scan — Cetak QR"
                 else -> "Scan — Lihat Data"
             },
             back = true
@@ -79,6 +82,7 @@ class ScanActivity : BaseActivity() {
         findViewById<TextView>(R.id.scanHint).text = when (mode) {
             MODE_INPUT -> "Scan QR Plan yang akan diinput perolehannya"
             MODE_MANUAL -> "Scan QR Plan Assembly/Inspection Manual"
+            MODE_PRINT -> "Scan QR Plan yang akan dicetak ulang QR-nya"
             else -> "Arahkan kamera ke QR"
         }
 
@@ -185,6 +189,7 @@ class ScanActivity : BaseActivity() {
         val target = when (mode) {
             MODE_INPUT -> InputActivity::class.java
             MODE_MANUAL -> ManualInputActivity::class.java
+            MODE_PRINT -> PrintActivity::class.java
             else -> PlanActivity::class.java
         }
         startActivity(Intent(this, target).putExtra(PlanActivity.EXTRA_CODE, code))
@@ -220,5 +225,6 @@ class ScanActivity : BaseActivity() {
         const val MODE_VIEW = "view"
         const val MODE_INPUT = "input"
         const val MODE_MANUAL = "manual"
+        const val MODE_PRINT = "print"
     }
 }

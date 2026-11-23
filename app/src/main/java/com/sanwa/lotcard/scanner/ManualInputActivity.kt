@@ -82,6 +82,7 @@ class ManualInputActivity : BaseActivity() {
         lateinit var dateBtn: MaterialButton
         lateinit var shiftBtn: MaterialButton
         var machineBtn: MaterialButton? = null
+        var machineOptions: List<PickOption> = emptyList()
         var machineText: EditText? = null
         lateinit var nik: EditText
         val params = linkedMapOf<String, EditText>()
@@ -313,15 +314,43 @@ class ManualInputActivity : BaseActivity() {
                     applyShift = p.value; sBtn.text = p.label
                 }
             }
+            // Preset Line (23 Nov 2026): pilih Line → NIK & mesin sub-proses
+            // terisi dari Preset Line (diatur Admin di web), sub-proses yang
+            // punya NIK di preset otomatis dicentang Selesai.
+            val presets = json.optJSONArray("line_presets") ?: JSONArray()
+            var applyLine: JSONObject? = null
+            val lBtn = pickButton("Line")
+            val lineOpts = (0 until presets.length()).mapNotNull { i -> presets.optJSONObject(i)?.optString("name")?.let { PickOption(it, it) } }
+            lBtn.setOnClickListener {
+                PickerDialog.show(this, "Line", listOf(PickOption("", "— Tanpa Line —")) + lineOpts) { p ->
+                    applyLine = (0 until presets.length()).mapNotNull { presets.optJSONObject(it) }.firstOrNull { it.optString("name") == p.value }
+                    lBtn.text = if (p.value.isBlank()) "Line" else p.label
+                }
+            }
             val apply = smallButton("Terapkan")
             apply.setOnClickListener {
+                val byOrder = mutableMapOf<Int, JSONObject>()
+                applyLine?.optJSONArray("steps")?.let { arr ->
+                    for (i in 0 until arr.length()) arr.optJSONObject(i)?.let { byOrder[it.optInt("order")] = it }
+                }
                 for (st in steps) {
                     if (st.saved) continue
                     if (applyDate.isNotBlank()) { st.workDate = applyDate; st.dateBtn.text = showDate(applyDate) }
                     if (applyShift.isNotBlank()) { st.shift = applyShift; st.shiftBtn.text = "Shift $applyShift" }
+                    val pr = byOrder[st.order] ?: continue
+                    val nik = pr.str("operator_nik")
+                    if (!nik.isNullOrBlank()) { st.nik.setText(nik); st.done.isChecked = true }
+                    val lineId = if (pr.isNull("line_id")) "" else pr.optInt("line_id").toString()
+                    val opt = st.machineOptions.firstOrNull { it.value == lineId }
+                    if (opt != null) { st.lineId = opt.value; st.machineBtn?.text = opt.label }
                 }
             }
-            box.addView(row(weighted(dBtn, 1.3f, dp(6)), weighted(sBtn, 1f, dp(6)), apply))
+            if (lineOpts.isNotEmpty() && !subcont) {
+                box.addView(row(weighted(dBtn, 1.3f, dp(6)), weighted(sBtn, 1f)))
+                box.addView(row(weighted(lBtn, 1.3f, dp(6)), weighted(apply, 1f)))
+            } else {
+                box.addView(row(weighted(dBtn, 1.3f, dp(6)), weighted(sBtn, 1f, dp(6)), apply))
+            }
         }
 
         // Lot Material (Assembly saja)
@@ -616,6 +645,7 @@ class ManualInputActivity : BaseActivity() {
                     else PickerDialog.show(this, "Mesin — ${st.label}", opts) { p -> st.lineId = p.value; btn.text = p.label; touch() }
                 }
                 st.machineBtn = btn
+                st.machineOptions = opts
                 box.addView(btn)
             }
         }
