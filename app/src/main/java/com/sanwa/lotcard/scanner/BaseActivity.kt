@@ -6,7 +6,12 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.text.InputType
+import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
@@ -78,5 +83,76 @@ abstract class BaseActivity : AppCompatActivity() {
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         startActivity(i)
         finish()
+    }
+
+    // ── APPROVE DARI HP (24 Nov 2026) — khusus Admin ────────────────────
+    /** Pilihan Approve / Tolak / Nanti untuk hasil [stage]; [onFinished] dipanggil setelah selesai (berhasil atau tidak). */
+    protected fun confirmApprove(code: String, stage: String, stageLabel: String, onFinished: () -> Unit) {
+        if (isFinishing) return
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Approve $stageLabel?")
+            .setMessage("Hasil $stageLabel sudah disubmit. Approve sekarang?")
+            .setCancelable(false)
+            .setPositiveButton("Approve") { _, _ -> sendApproval(code, stage, "approved", null, onFinished) }
+            .setNeutralButton("Tolak") { _, _ -> askRejectNotes(code, stage, onFinished) }
+            .setNegativeButton("Nanti") { _, _ -> onFinished() }
+            .show()
+    }
+
+    protected fun askRejectNotes(code: String, stage: String, onFinished: () -> Unit) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            hint = "Alasan ditolak (boleh kosong)"
+        }
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        val box = LinearLayout(this).apply { setPadding(pad, pad / 2, pad, 0); addView(input) }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Tolak hasil?")
+            .setView(box)
+            .setCancelable(false)
+            .setPositiveButton("Tolak") { _, _ -> sendApproval(code, stage, "rejected", input.text.toString().trim().ifBlank { null }, onFinished) }
+            .setNegativeButton("Batal") { _, _ -> onFinished() }
+            .show()
+    }
+
+    /** POST /api/mobile/approve/{kode}. Sesudah approve, tawarkan Cetak QR (QR stage berikutnya sudah dibuat server). */
+    protected fun sendApproval(code: String, stage: String, action: String, notes: String?, onFinished: () -> Unit) {
+        val body = JSONObject().put("stage", stage).put("action", action).put("notes", notes ?: JSONObject.NULL)
+        lifecycleScope.launch {
+            val r = api.call("POST", "/api/mobile/approve/" + android.net.Uri.encode(code), body)
+            when (r) {
+                is ApiResult.Response -> when {
+                    r.ok -> {
+                        if (isFinishing) return@launch
+                        val b = MaterialAlertDialogBuilder(this@BaseActivity)
+                            .setTitle(if (action == "approved") "Approved" else "Ditolak")
+                            .setMessage(r.message)
+                            .setCancelable(false)
+                            .setPositiveButton("OK") { _, _ -> onFinished() }
+                        if (action == "approved") {
+                            b.setNeutralButton("Cetak QR") { _, _ -> openPrint(code); onFinished() }
+                        }
+                        b.show()
+                    }
+                    r.code == 401 -> goToLogin(r.message)
+                    else -> {
+                        if (isFinishing) return@launch
+                        MaterialAlertDialogBuilder(this@BaseActivity).setTitle("Belum berhasil").setMessage(r.message)
+                            .setCancelable(false).setPositiveButton("OK") { _, _ -> onFinished() }.show()
+                    }
+                }
+                is ApiResult.UntrustedCert -> askTrustCertificate(r) { sendApproval(code, stage, action, notes, onFinished) }
+                is ApiResult.NetworkError -> {
+                    if (isFinishing) return@launch
+                    MaterialAlertDialogBuilder(this@BaseActivity).setTitle("Belum berhasil").setMessage(r.message)
+                        .setCancelable(false).setPositiveButton("OK") { _, _ -> onFinished() }.show()
+                }
+            }
+        }
+    }
+
+    /** Buka layar Cetak QR untuk Plan [code]. */
+    protected fun openPrint(code: String) {
+        startActivity(Intent(this, PrintActivity::class.java).putExtra(PlanActivity.EXTRA_CODE, code))
     }
 }

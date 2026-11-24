@@ -63,6 +63,11 @@ class ManualInputActivity : BaseActivity() {
     private var checkInput: EditText? = null
     private var summary: TextView? = null
 
+    // Approve dari HP (Admin) & cetak QR dari halaman ini (24 Nov 2026).
+    private var canApprove = false
+    private var stageLabel = ""
+    private var planLotId = ""
+
     // Preset Line: Line terpilih (untuk dropdown operator inti/backup).
     private var currentLine: JSONObject? = null
     private var linePresets: JSONArray = JSONArray()
@@ -246,6 +251,9 @@ class ManualInputActivity : BaseActivity() {
 
         val plan = json.optJSONObject("plan") ?: JSONObject()
         stage = json.optString("stage")
+        canApprove = json.optBoolean("can_approve")
+        stageLabel = json.optString("stage_label")
+        planLotId = (json.optJSONObject("plan") ?: JSONObject()).optString("lot_id", code)
         locked = json.optBoolean("locked")
         subcont = json.optBoolean("subcont")
         startQty = if (json.isNull("start_qty")) null else json.optInt("start_qty")
@@ -282,6 +290,32 @@ class ManualInputActivity : BaseActivity() {
         val notes = json.optJSONArray("notes") ?: JSONArray()
         for (i in 0 until notes.length()) {
             head.addView(label("• " + notes.optString(i), 12f, Color.parseColor("#92400E")).apply { setPadding(0, dp(4), 0, 0) })
+        }
+        // Cetak QR langsung dari sini (tanpa kembali ke menu Cetak QR).
+        val printBtn = pickButton("🖨  Cetak QR Plan ini")
+        printBtn.tag = KEEP_ENABLED
+        printBtn.setOnClickListener { openPrint(planLotId) }
+        head.addView(printBtn)
+
+        // Admin: Approve / Tolak hasil yang sudah disubmit.
+        if (canApprove && status == "submitted") {
+            val ab = card(Color.parseColor("#FFFBEB"))
+            ab.addView(label("Menunggu approval", 15f, Color.parseColor("#92400E"), true))
+            ab.addView(label("Periksa isian di bawah, lalu Approve atau Tolak.", 12f, Color.parseColor("#6B7280")))
+            val approveBtn = MaterialButton(this).apply { text = "Approve"; isAllCaps = false; tag = KEEP_ENABLED }
+            val rejectBtn = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                text = "Tolak"; isAllCaps = false; tag = KEEP_ENABLED
+            }
+            approveBtn.setOnClickListener {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("Approve $stageLabel?")
+                    .setMessage("Hasil ini akan di-approve dan proses berikutnya dibuka.")
+                    .setPositiveButton("Approve") { _, _ -> sendApproval(planLotId, stage.orEmpty(), "approved", null) { load() } }
+                    .setNegativeButton("Batal", null)
+                    .show()
+            }
+            rejectBtn.setOnClickListener { askRejectNotes(planLotId, stage.orEmpty()) { load() } }
+            ab.addView(row(weighted(rejectBtn, 1f, dp(6)), weighted(approveBtn, 1.4f)))
         }
 
         // Pilih stage (Plan dengan Assembly & Inspection Manual).
@@ -906,12 +940,17 @@ class ManualInputActivity : BaseActivity() {
                 is ApiResult.Response -> when {
                     r.ok -> {
                         val submitted = r.json.optBoolean("submitted")
-                        MaterialAlertDialogBuilder(this@ManualInputActivity)
-                            .setTitle(if (submitted) "Terkirim" else "Tersimpan")
-                            .setMessage(r.message)
-                            .setCancelable(false)
-                            .setPositiveButton("OK") { _, _ -> if (submitted) finish() else load() }
-                            .show()
+                        if (submitted && canApprove) {
+                            // Admin: langsung Approve dari halaman yang sama (24 Nov 2026).
+                            confirmApprove(planLotId, stage.orEmpty(), stageLabel) { load() }
+                        } else {
+                            MaterialAlertDialogBuilder(this@ManualInputActivity)
+                                .setTitle(if (submitted) "Terkirim" else "Tersimpan")
+                                .setMessage(r.message)
+                                .setCancelable(false)
+                                .setPositiveButton("OK") { _, _ -> if (submitted) finish() else load() }
+                                .show()
+                        }
                     }
                     r.code == 401 -> goToLogin(r.message)
                     r.json.optBoolean("saved") -> {

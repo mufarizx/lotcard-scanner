@@ -43,6 +43,9 @@ class InputActivity : BaseActivity() {
     // ── Data form dari server ─────────────────────────────────────────
     private var form: JSONObject? = null
     private var stage = ""
+    private var canApprove = false
+    private var stageLabelText = ""
+    private var planLotId = ""
     private var isWinding = false
     private var prevOk = 0
     private var qtyPlan = 0
@@ -234,6 +237,9 @@ class InputActivity : BaseActivity() {
         canPart1 = role.optBoolean("can_part1")
         canPart2 = role.optBoolean("can_part2")
         canChooseSuccessor = role.optBoolean("can_choose_successor")
+        canApprove = role.optBoolean("can_approve")
+        stageLabelText = json.optString("stage_label")
+        planLotId = plan.optString("lot_id", code)
         isSuccessorUser = role.optBoolean("is_successor")
         val succ = json.optJSONObject("successor")
         savedSuccessorId = succ?.optInt("id") ?: 0
@@ -751,12 +757,18 @@ class InputActivity : BaseActivity() {
             when (r) {
                 is ApiResult.Response -> when {
                     r.ok -> {
-                        MaterialAlertDialogBuilder(this@InputActivity)
-                            .setTitle("Tersimpan")
-                            .setMessage(r.message)
-                            .setCancelable(false)
-                            .setPositiveButton("OK") { _, _ -> finish() }
-                            .show()
+                        // Admin: langsung tawarkan Approve (24 Nov 2026) bila tidak menunggu penerus.
+                        if (canApprove && !r.json.optBoolean("waiting_successor") &&
+                            r.json.optJSONObject("result")?.optString("status") == "pending") {
+                            confirmApprove(planLotId, stage, stageLabelText) { finish() }
+                        } else {
+                            MaterialAlertDialogBuilder(this@InputActivity)
+                                .setTitle("Tersimpan")
+                                .setMessage(r.message)
+                                .setCancelable(false)
+                                .setPositiveButton("OK") { _, _ -> finish() }
+                                .show()
+                        }
                     }
                     r.code == 401 -> goToLogin(r.message)
                     else -> showMessage("Belum tersimpan", errorDetail(r.json, r.message))
