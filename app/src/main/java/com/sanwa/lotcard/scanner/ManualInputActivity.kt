@@ -63,6 +63,11 @@ class ManualInputActivity : BaseActivity() {
     private var checkInput: EditText? = null
     private var summary: TextView? = null
 
+    // Preset Line: Line terpilih (untuk dropdown operator inti/backup).
+    private var currentLine: JSONObject? = null
+    private var linePresets: JSONArray = JSONArray()
+    private var lineBtn: MaterialButton? = null
+
     // Lot Material (Assembly)
     private val lotGroups = mutableListOf<LotGroup>()
     private var lotsDirty = false
@@ -83,6 +88,7 @@ class ManualInputActivity : BaseActivity() {
         lateinit var shiftBtn: MaterialButton
         var machineBtn: MaterialButton? = null
         var machineOptions: List<PickOption> = emptyList()
+        var nikPick: MaterialButton? = null
         var machineText: EditText? = null
         lateinit var nik: EditText
         val params = linkedMapOf<String, EditText>()
@@ -232,6 +238,9 @@ class ManualInputActivity : BaseActivity() {
         content.removeAllViews()
         errorBox.visibility = View.GONE
         steps.clear(); ngRows.clear(); lotGroups.clear()
+        linePresets = if (subcontOf(json)) JSONArray() else (json.optJSONArray("line_presets") ?: JSONArray())
+        currentLine = null
+        lineBtn = null
         lotsDirty = false
         lotSaveBtn = null; lotEditBtn = null
 
@@ -317,29 +326,25 @@ class ManualInputActivity : BaseActivity() {
             // Preset Line (23 Nov 2026): pilih Line → NIK & mesin sub-proses
             // terisi dari Preset Line (diatur Admin di web), sub-proses yang
             // punya NIK di preset otomatis dicentang Selesai.
-            val presets = json.optJSONArray("line_presets") ?: JSONArray()
-            var applyLine: JSONObject? = null
+            val presets = linePresets
             val lBtn = pickButton("Line")
+            lineBtn = lBtn
             val lineOpts = (0 until presets.length()).mapNotNull { i -> presets.optJSONObject(i)?.optString("name")?.let { PickOption(it, it) } }
             lBtn.setOnClickListener {
                 PickerDialog.show(this, "Line", listOf(PickOption("", "— Tanpa Line —")) + lineOpts) { p ->
-                    applyLine = (0 until presets.length()).mapNotNull { presets.optJSONObject(it) }.firstOrNull { it.optString("name") == p.value }
-                    lBtn.text = if (p.value.isBlank()) "Line" else p.label
+                    setCurrentLine((0 until presets.length()).mapNotNull { presets.optJSONObject(it) }.firstOrNull { it.optString("name") == p.value })
                 }
             }
             val apply = smallButton("Terapkan")
             apply.setOnClickListener {
-                val byOrder = mutableMapOf<Int, JSONObject>()
-                applyLine?.optJSONArray("steps")?.let { arr ->
-                    for (i in 0 until arr.length()) arr.optJSONObject(i)?.let { byOrder[it.optInt("order")] = it }
-                }
+                val byOrder = presetByOrder(currentLine)
                 for (st in steps) {
                     if (st.saved) continue
                     if (applyDate.isNotBlank()) { st.workDate = applyDate; st.dateBtn.text = showDate(applyDate) }
                     if (applyShift.isNotBlank()) { st.shift = applyShift; st.shiftBtn.text = "Shift $applyShift" }
                     val pr = byOrder[st.order] ?: continue
                     val nik = pr.str("operator_nik")
-                    if (!nik.isNullOrBlank()) { st.nik.setText(nik); st.done.isChecked = true }
+                    if (!nik.isNullOrBlank()) { st.nik.setText(nik); st.done.isChecked = true } // operator inti
                     val lineId = if (pr.isNull("line_id")) "" else pr.optInt("line_id").toString()
                     val opt = st.machineOptions.firstOrNull { it.value == lineId }
                     if (opt != null) { st.lineId = opt.value; st.machineBtn?.text = opt.label }
@@ -361,6 +366,24 @@ class ManualInputActivity : BaseActivity() {
         for (i in 0 until stepArr.length()) {
             val s = stepArr.optJSONObject(i) ?: continue
             buildStep(s)
+        }
+
+        // Tebak Line dari mesin yang sudah tersimpan → dropdown operator siap.
+        if (currentLine == null && linePresets.length() > 0) {
+            var best: JSONObject? = null
+            var bestHits = 0
+            for (i in 0 until linePresets.length()) {
+                val ln = linePresets.optJSONObject(i) ?: continue
+                val byOrder = presetByOrder(ln)
+                val hits = steps.count { st ->
+                    val pr = byOrder[st.order]
+                    st.lineId.isNotBlank() && pr != null && !pr.isNull("line_id") && pr.optInt("line_id").toString() == st.lineId
+                }
+                if (hits > bestHits) { best = ln; bestHits = hits }
+            }
+            setCurrentLine(best)
+        } else {
+            refreshNikPicks()
         }
 
         // Hasil
@@ -575,6 +598,31 @@ class ManualInputActivity : BaseActivity() {
         }
     }
 
+    private fun subcontOf(json: JSONObject): Boolean = json.optBoolean("subcont")
+
+    private fun presetByOrder(line: JSONObject?): Map<Int, JSONObject> {
+        val out = mutableMapOf<Int, JSONObject>()
+        line?.optJSONArray("steps")?.let { arr ->
+            for (i in 0 until arr.length()) arr.optJSONObject(i)?.let { out[it.optInt("order")] = it }
+        }
+        return out
+    }
+
+    private fun setCurrentLine(line: JSONObject?) {
+        currentLine = line
+        lineBtn?.text = line?.optString("name") ?: "Line"
+        refreshNikPicks()
+    }
+
+    /** Tombol dropdown operator tampil bila Line terpilih punya operator untuk sub-proses itu. */
+    private fun refreshNikPicks() {
+        val byOrder = presetByOrder(currentLine)
+        for (st in steps) {
+            val n = byOrder[st.order]?.optJSONArray("operators")?.length() ?: 0
+            st.nikPick?.visibility = if (n > 0 && !locked) View.VISIBLE else View.GONE
+        }
+    }
+
     private fun buildStep(s: JSONObject) {
         val v = s.optJSONObject("values") ?: JSONObject()
         val st = StepRow(s.optInt("order"), s.optString("label"), s.optBoolean("filled"), s.optBoolean("needs_machine"))
@@ -623,7 +671,18 @@ class ManualInputActivity : BaseActivity() {
             filters = arrayOf(InputFilter.LengthFilter(4))
         }
         afterChange(st.nik) { if (st.nik.text.isNotEmpty()) touch() }
-        box.addView(st.nik)
+        // Dropdown operator inti / backup dari Preset Line.
+        val pickBtn = smallButton("▼ Operator")
+        pickBtn.visibility = View.GONE
+        pickBtn.setOnClickListener {
+            val ops = presetByOrder(currentLine)[st.order]?.optJSONArray("operators") ?: JSONArray()
+            val opts = (0 until ops.length()).mapNotNull { i ->
+                ops.optJSONObject(i)?.let { PickOption(it.optString("nik"), it.optString("nik") + " · " + it.optString("role")) }
+            }
+            if (opts.isNotEmpty()) PickerDialog.show(this, "Operator — ${st.label}", opts) { p -> st.nik.setText(p.value) }
+        }
+        st.nikPick = pickBtn
+        box.addView(row(weighted(st.nik, 1f, dp(6)), pickBtn))
 
         if (st.needsMachine) {
             if (subcont) {
