@@ -72,6 +72,10 @@ class ManualInputActivity : BaseActivity() {
     private var currentLine: JSONObject? = null
     private var linePresets: JSONArray = JSONArray()
     private var lineBtn: MaterialButton? = null
+    // Grup shift (24 Nov 2026): operator dipetakan per Line + Grup; mesin per Line.
+    private var shiftGroups: List<String> = emptyList()
+    private var currentGroup = ""
+    private var groupBtn: MaterialButton? = null
 
     // Lot Material (Assembly)
     private val lotGroups = mutableListOf<LotGroup>()
@@ -246,6 +250,9 @@ class ManualInputActivity : BaseActivity() {
         linePresets = if (subcontOf(json)) JSONArray() else (json.optJSONArray("line_presets") ?: JSONArray())
         currentLine = null
         lineBtn = null
+        currentGroup = ""
+        groupBtn = null
+        shiftGroups = json.optJSONArray("shift_groups")?.let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() } } ?: emptyList()
         lotsDirty = false
         lotSaveBtn = null; lotEditBtn = null
 
@@ -369,15 +376,26 @@ class ManualInputActivity : BaseActivity() {
                     setCurrentLine((0 until presets.length()).mapNotNull { presets.optJSONObject(it) }.firstOrNull { it.optString("name") == p.value })
                 }
             }
+            val gBtn = pickButton("Grup")
+            groupBtn = gBtn
+            gBtn.setOnClickListener {
+                PickerDialog.show(this, "Grup", listOf(PickOption("", "— Tanpa Grup —")) + shiftGroups.map { PickOption(it, "Grup $it") }) { p ->
+                    setCurrentGroup(p.value)
+                }
+            }
             val apply = smallButton("Terapkan")
             apply.setOnClickListener {
+                if (currentLine != null && shiftGroups.isNotEmpty() && currentGroup.isBlank()) {
+                    showMessage("Pilih Grup", "Pilih Grup (A/B) juga — operator diisi dari Preset Line sesuai Line dan Grup.")
+                    return@setOnClickListener
+                }
                 val byOrder = presetByOrder(currentLine)
                 for (st in steps) {
                     if (st.saved) continue
                     if (applyDate.isNotBlank()) { st.workDate = applyDate; st.dateBtn.text = showDate(applyDate) }
                     if (applyShift.isNotBlank()) { st.shift = applyShift; st.shiftBtn.text = "Shift $applyShift" }
                     val pr = byOrder[st.order] ?: continue
-                    val nik = pr.str("operator_nik")
+                    val nik = groupOf(pr)?.str("operator_nik")
                     if (!nik.isNullOrBlank()) { st.nik.setText(nik); st.done.isChecked = true } // operator inti
                     val lineId = if (pr.isNull("line_id")) "" else pr.optInt("line_id").toString()
                     val opt = st.machineOptions.firstOrNull { it.value == lineId }
@@ -386,7 +404,11 @@ class ManualInputActivity : BaseActivity() {
             }
             if (lineOpts.isNotEmpty() && !subcont) {
                 box.addView(row(weighted(dBtn, 1.3f, dp(6)), weighted(sBtn, 1f)))
-                box.addView(row(weighted(lBtn, 1.3f, dp(6)), weighted(apply, 1f)))
+                if (shiftGroups.isNotEmpty()) {
+                    box.addView(row(weighted(lBtn, 1f, dp(6)), weighted(gBtn, 1f, dp(6)), weighted(apply, 1f)))
+                } else {
+                    box.addView(row(weighted(lBtn, 1.3f, dp(6)), weighted(apply, 1f)))
+                }
             } else {
                 box.addView(row(weighted(dBtn, 1.3f, dp(6)), weighted(sBtn, 1f, dp(6)), apply))
             }
@@ -415,7 +437,25 @@ class ManualInputActivity : BaseActivity() {
                 }
                 if (hits > bestHits) { best = ln; bestHits = hits }
             }
-            setCurrentLine(best)
+            currentLine = best
+            lineBtn?.text = best?.optString("name") ?: "Line"
+            // Tebak Grup dari NIK yang sudah tersimpan.
+            if (best != null && shiftGroups.isNotEmpty()) {
+                val byOrder = presetByOrder(best)
+                var bestG = ""
+                var bestGHits = 0
+                for (g in shiftGroups) {
+                    val hits = steps.count { st ->
+                        val nik = st.nik.text.toString()
+                        val ops = byOrder[st.order]?.optJSONObject("groups")?.optJSONObject(g)?.optJSONArray("operators") ?: JSONArray()
+                        nik.isNotBlank() && (0 until ops.length()).any { ops.optJSONObject(it)?.optString("nik") == nik }
+                    }
+                    if (hits > bestGHits) { bestG = g; bestGHits = hits }
+                }
+                currentGroup = bestG
+                groupBtn?.text = if (bestG.isBlank()) "Grup" else "Grup $bestG"
+            }
+            refreshNikPicks()
         } else {
             refreshNikPicks()
         }
@@ -648,11 +688,25 @@ class ManualInputActivity : BaseActivity() {
         refreshNikPicks()
     }
 
-    /** Tombol dropdown operator tampil bila Line terpilih punya operator untuk sub-proses itu. */
+    private fun setCurrentGroup(group: String) {
+        currentGroup = group
+        groupBtn?.text = if (group.isBlank()) "Grup" else "Grup $group"
+        refreshNikPicks()
+    }
+
+    /** Data operator Line + Grup terpilih untuk satu sub-proses (server lama tanpa grup → data Line itu sendiri). */
+    private fun groupOf(pr: JSONObject?): JSONObject? {
+        if (pr == null) return null
+        if (shiftGroups.isEmpty()) return pr
+        if (currentGroup.isBlank()) return null
+        return pr.optJSONObject("groups")?.optJSONObject(currentGroup)
+    }
+
+    /** Tombol dropdown operator tampil bila Line + Grup terpilih punya operator untuk sub-proses itu. */
     private fun refreshNikPicks() {
         val byOrder = presetByOrder(currentLine)
         for (st in steps) {
-            val n = byOrder[st.order]?.optJSONArray("operators")?.length() ?: 0
+            val n = groupOf(byOrder[st.order])?.optJSONArray("operators")?.length() ?: 0
             st.nikPick?.visibility = if (n > 0 && !locked) View.VISIBLE else View.GONE
         }
     }
@@ -709,7 +763,7 @@ class ManualInputActivity : BaseActivity() {
         val pickBtn = smallButton("▼ Operator")
         pickBtn.visibility = View.GONE
         pickBtn.setOnClickListener {
-            val ops = presetByOrder(currentLine)[st.order]?.optJSONArray("operators") ?: JSONArray()
+            val ops = groupOf(presetByOrder(currentLine)[st.order])?.optJSONArray("operators") ?: JSONArray()
             val opts = (0 until ops.length()).mapNotNull { i ->
                 ops.optJSONObject(i)?.let { PickOption(it.optString("nik"), it.optString("nik") + " · " + it.optString("role")) }
             }
