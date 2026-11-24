@@ -28,8 +28,11 @@ import kotlin.math.roundToInt
  *
  * Kartu digambar SAMA dengan halaman web "Print Card" (label 30 × 20 mm):
  *   [kode stage + tanggal, diputar] [QR stage, diputar 90°] [produk + mesin, diputar]
- * lalu dikirim sebagai gambar raster ESC/POS (GS v 0) — cara yang didukung
- * hampir semua printer thermal ESC/POS, tanpa driver/aplikasi lain.
+ * lalu dikirim sebagai gambar:
+ *  - TSPL (mode label — sama dengan setting RawBT "TSPL" yang dipakai di
+ *    web; default), perintah SIZE/GAP/CLS/BITMAP/PRINT; atau
+ *  - ESC/POS raster (GS v 0) untuk printer mode struk.
+ * Tanpa driver/aplikasi lain (tidak perlu RawBT).
  */
 object LabelRenderer {
     const val DOTS_PER_MM = 8
@@ -132,10 +135,9 @@ object LabelRenderer {
         return out
     }
 
-    /** Perintah ESC/POS untuk 1 kartu (beberapa salinan). */
-    fun escPos(card: Bitmap, offsetMm: Float, topMm: Float, gapMm: Float, useGsFf: Boolean, copies: Int): ByteArray {
+    /** Gambar selebar area cetak (384 titik) dengan kartu digeser [offsetMm] dari kiri. Bit 1 = hitam. */
+    private fun rasterRows(card: Bitmap, offsetMm: Float): Pair<ByteArray, Int> {
         val offset = (offsetMm * DOTS_PER_MM).roundToInt().coerceIn(0, PRINT_WIDTH - card.width)
-        val top = (topMm * DOTS_PER_MM).roundToInt().coerceIn(0, 80)
         val widthBytes = PRINT_WIDTH / 8
         val height = card.height
         val raster = ByteArray(widthBytes * height)
@@ -149,6 +151,37 @@ object LabelRenderer {
                 }
             }
         }
+        return raster to widthBytes
+    }
+
+    /**
+     * Perintah TSPL (printer label). Seperti RawBT: area selebar kepala cetak
+     * (48 mm) dengan kartu 30 × 20 mm digeser [offsetMm] dari kiri, tinggi
+     * label 20 mm + [gapMm]. BITMAP TSPL: bit 0 = hitam (dibalik bila [invert]).
+     */
+    fun tspl(card: Bitmap, offsetMm: Float, topMm: Float, gapMm: Float, copies: Int, invert: Boolean, rotate180: Boolean): ByteArray {
+        val (raster, widthBytes) = rasterRows(card, offsetMm)
+        val data = ByteArray(raster.size) { i -> if (invert) raster[i] else raster[i].toInt().inv().toByte() }
+        val top = (topMm * DOTS_PER_MM).roundToInt().coerceIn(0, 80)
+        val out = ByteArrayOutputStream()
+        fun cmd(s: String) = out.write((s + "\r\n").toByteArray(Charsets.US_ASCII))
+        cmd("SIZE ${PRINT_WIDTH / DOTS_PER_MM} mm,${CARD_H / DOTS_PER_MM} mm")
+        cmd("GAP ${String.format(java.util.Locale.US, "%.1f", gapMm)} mm,0 mm")
+        cmd("DIRECTION ${if (rotate180) 1 else 0}")
+        cmd("REFERENCE 0,0")
+        cmd("CLS")
+        out.write("BITMAP 0,$top,$widthBytes,${card.height},0,".toByteArray(Charsets.US_ASCII))
+        out.write(data)
+        out.write("\r\n".toByteArray(Charsets.US_ASCII))
+        cmd("PRINT 1,${copies.coerceIn(1, 50)}")
+        return out.toByteArray()
+    }
+
+    /** Perintah ESC/POS untuk 1 kartu (beberapa salinan). */
+    fun escPos(card: Bitmap, offsetMm: Float, topMm: Float, gapMm: Float, useGsFf: Boolean, copies: Int): ByteArray {
+        val top = (topMm * DOTS_PER_MM).roundToInt().coerceIn(0, 80)
+        val (raster, widthBytes) = rasterRows(card, offsetMm)
+        val height = card.height
         val out = ByteArrayOutputStream()
         out.write(byteArrayOf(0x1B, 0x40)) // ESC @ — inisialisasi
         repeat(copies.coerceIn(1, 50)) {

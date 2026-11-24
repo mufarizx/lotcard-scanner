@@ -223,7 +223,10 @@ class PrintActivity : BaseActivity() {
             choosePrinter { printBitmap(bmp, copies) }
             return@withBluetooth
         }
-        val data = LabelRenderer.escPos(bmp, prefs.printerOffsetMm, prefs.printerTopMm, prefs.printerGapMm, prefs.printerUseGsFf, copies)
+        val data = if (prefs.printerTspl)
+            LabelRenderer.tspl(bmp, prefs.printerOffsetMm, prefs.printerTopMm, prefs.printerGapMm, copies, prefs.printerInvert, prefs.printerRotate)
+        else
+            LabelRenderer.escPos(bmp, prefs.printerOffsetMm, prefs.printerTopMm, prefs.printerGapMm, prefs.printerUseGsFf, copies)
         progress.visibility = View.VISIBLE
         lifecycleScope.launch {
             val err = BluetoothPrinter.send(this@PrintActivity, prefs.printerAddress, data)
@@ -248,13 +251,28 @@ class PrintActivity : BaseActivity() {
             }.also { box.addView(it) }
         }
         box.addView(label("Label 30 × 20 mm, printer 58 mm (area cetak 48 mm).", 12f, Color.parseColor("#6B7280")))
+        val tspl = CheckBox(this).apply {
+            text = "Mode label TSPL (sama dengan RawBT \"TSPL\") — matikan hanya untuk printer mode struk (ESC/POS)"
+            isChecked = prefs.printerTspl
+        }
+        box.addView(tspl)
         val offset = num("Geser ke kanan dari tepi kiri area cetak (mm, 0–18)", prefs.printerOffsetMm)
         val top = num("Geser ke bawah di awal label (mm, 0–10)", prefs.printerTopMm)
         val gap = num("Jarak antar label / gap (mm)", prefs.printerGapMm)
         val gsff = CheckBox(this).apply {
-            text = "Cari awal label berikutnya otomatis (perintah GS FF) — coba bila posisi label bergeser terus"
+            text = "ESC/POS: cari awal label berikutnya (GS FF) — coba bila posisi label bergeser terus"
             isChecked = prefs.printerUseGsFf
         }
+        val invert = CheckBox(this).apply {
+            text = "TSPL: balik warna (centang bila label tercetak hitam penuh / warnanya terbalik)"
+            isChecked = prefs.printerInvert
+        }
+        val rotate = CheckBox(this).apply {
+            text = "TSPL: putar 180° (bila hasil terbalik)"
+            isChecked = prefs.printerRotate
+        }
+        box.addView(invert)
+        box.addView(rotate)
         box.addView(gsff)
 
         fun saveFields(): Boolean {
@@ -269,12 +287,15 @@ class PrintActivity : BaseActivity() {
             prefs.printerTopMm = t
             prefs.printerGapMm = g
             prefs.printerUseGsFf = gsff.isChecked
+            prefs.printerTspl = tspl.isChecked
+            prefs.printerInvert = invert.isChecked
+            prefs.printerRotate = rotate.isChecked
             return true
         }
 
         MaterialAlertDialogBuilder(this)
             .setTitle("Atur printer")
-            .setView(box)
+            .setView(android.widget.ScrollView(this).apply { addView(box) })
             .setPositiveButton("Simpan") { _, _ -> saveFields() }
             .setNeutralButton("Tes cetak") { _, _ -> if (saveFields()) printBitmap(LabelRenderer.renderTestCard(), 1) }
             .setNegativeButton("Batal", null)

@@ -81,6 +81,21 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_PRINTER_GSFF, false)
         set(v) = sp.edit().putBoolean(KEY_PRINTER_GSFF, v).apply()
 
+    /** Bahasa printer: true = TSPL (mode label, seperti RawBT "TSPL"), false = ESC/POS (struk). */
+    var printerTspl: Boolean
+        get() = sp.getBoolean(KEY_PRINTER_TSPL, true)
+        set(v) = sp.edit().putBoolean(KEY_PRINTER_TSPL, v).apply()
+
+    /** TSPL: balik warna gambar (bila hasil cetak hitam semua / terbalik). */
+    var printerInvert: Boolean
+        get() = sp.getBoolean(KEY_PRINTER_INVERT, false)
+        set(v) = sp.edit().putBoolean(KEY_PRINTER_INVERT, v).apply()
+
+    /** TSPL: putar hasil 180° (DIRECTION 1). */
+    var printerRotate: Boolean
+        get() = sp.getBoolean(KEY_PRINTER_ROTATE, false)
+        set(v) = sp.edit().putBoolean(KEY_PRINTER_ROTATE, v).apply()
+
     /** Simpan data user dari jawaban login / me. */
     fun saveUser(user: org.json.JSONObject?, fallbackNik: String = "") {
         if (user == null) return
@@ -142,6 +157,9 @@ class Prefs(context: Context) {
         private const val KEY_PRINTER_TOP = "printer_top_mm"
         private const val KEY_PRINTER_GAP = "printer_gap_mm"
         private const val KEY_PRINTER_GSFF = "printer_gsff"
+        private const val KEY_PRINTER_TSPL = "printer_tspl"
+        private const val KEY_PRINTER_INVERT = "printer_invert"
+        private const val KEY_PRINTER_ROTATE = "printer_rotate"
         private const val KEY_PINS = "pinned_fingerprints"
 
         /** "200.200.64.4:2443/" → "https://200.200.64.4:2443" */
