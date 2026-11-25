@@ -11,6 +11,7 @@
         android:layout_height="?attr/actionBarSize"
         android:background="@color/brand"
         android:theme="@style/ThemeOverlay.Material3.Dark.ActionBar"
+        app:popupTheme="@style/ToolbarPopup"
         app:title="Data Plan" />
 
     <FrameLayout

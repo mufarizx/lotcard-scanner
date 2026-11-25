@@ -853,7 +853,7 @@ class ManualInputActivity : BaseActivity() {
         }
         box.addView(row(weighted(st.dateBtn, 1.4f, dp(6)), weighted(st.shiftBtn, 1f)))
 
-        st.nik = numberInput(v.str("operator_nik"), false, "NIK (4 angka)").apply {
+        st.nik = numberInput(v.str("operator_nik"), false, "Ketik NIK (4 angka)").apply {
             filters = arrayOf(InputFilter.LengthFilter(4))
         }
         afterChange(st.nik) { if (st.nik.text.isNotEmpty()) touch() }

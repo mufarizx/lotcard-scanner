@@ -7,4 +7,13 @@
         <item name="android:statusBarColor">@color/brand_dark</item>
         <item name="android:windowBackground">@color/bg</item>
     </style>
+
+    <!-- Menu titik tiga (Pengaturan server, Keluar): latar putih, teks hitam (25 Nov 2026). -->
+    <style name="ToolbarPopup" parent="ThemeOverlay.Material3.Light">
+        <item name="android:textColorPrimary">@android:color/black</item>
+        <item name="android:textColor">@android:color/black</item>
+        <item name="android:colorBackground">@android:color/white</item>
+        <item name="colorSurface">@android:color/white</item>
+        <item name="colorOnSurface">@android:color/black</item>
+    </style>
 </resources>
