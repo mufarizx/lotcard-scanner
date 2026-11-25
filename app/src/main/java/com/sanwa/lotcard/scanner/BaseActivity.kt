@@ -1,6 +1,8 @@
 package com.sanwa.lotcard.scanner
 
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.graphics.Color
 import android.view.Gravity
 import android.view.ViewGroup
@@ -21,6 +23,88 @@ abstract class BaseActivity : AppCompatActivity() {
 
     /** Halaman berlatar gelap (kamera) memakai footer gelap. */
     protected open val darkFooter: Boolean = false
+
+    // ── SESI LOGIN (25 Nov 2026) ──────────────────────────────────────
+    // Aplikasi terbuka tapi tidak disentuh 1 jam → login lagi.
+    // Aplikasi ditinggal (di latar belakang / ditutup) 30 menit → login lagi.
+    // Login & Pengaturan server tidak dijaga (belum ada sesi).
+    protected open val sessionGuard: Boolean = true
+    private val sessionHandler = Handler(Looper.getMainLooper())
+    private val sessionTick = object : Runnable {
+        override fun run() {
+            if (!checkSession(fromBackground = false)) return
+            sessionHandler.postDelayed(this, 30_000L)
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        startedActivities++
+        if (startedActivities == 1) checkSession(fromBackground = true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        startedActivities = (startedActivities - 1).coerceAtLeast(0)
+        if (startedActivities == 0 && !isChangingConfigurations && !prefs.token.isNullOrBlank()) {
+            prefs.backgroundAt = System.currentTimeMillis()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        sessionHandler.removeCallbacks(sessionTick)
+        sessionHandler.postDelayed(sessionTick, 30_000L)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sessionHandler.removeCallbacks(sessionTick)
+    }
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        val now = System.currentTimeMillis()
+        if (now - lastTouchSaved > 10_000L) { // hemat tulis: paling sering tiap 10 detik
+            lastTouchSaved = now
+            if (!prefs.token.isNullOrBlank()) prefs.lastActiveAt = now
+        }
+    }
+
+    /** false = sesi berakhir (sudah diarahkan ke Login). */
+    private fun checkSession(fromBackground: Boolean): Boolean {
+        if (!sessionGuard || prefs.token.isNullOrBlank()) return true
+        val now = System.currentTimeMillis()
+        val bg = prefs.backgroundAt
+        val last = prefs.lastActiveAt
+        val reason = when {
+            fromBackground && bg > 0 && now - bg >= CLOSED_LIMIT_MS ->
+                "Sesi berakhir: aplikasi tidak dibuka lebih dari 30 menit. Silakan login lagi."
+            last > 0 && now - last >= IDLE_LIMIT_MS ->
+                "Sesi berakhir: aplikasi tidak digunakan lebih dari 1 jam. Silakan login lagi."
+            else -> null
+        }
+        if (reason != null) {
+            expireSession(reason)
+            return false
+        }
+        if (fromBackground) {
+            prefs.backgroundAt = 0L
+            prefs.lastActiveAt = now
+            lastTouchSaved = now
+        }
+        return true
+    }
+
+    private fun expireSession(reason: String) {
+        val oldToken = prefs.token
+        val client = ApiClient(applicationContext)
+        // Cabut token di server (abaikan kalau server tidak terjangkau).
+        if (!oldToken.isNullOrBlank()) {
+            kotlinx.coroutines.GlobalScope.launch { client.call("POST", "/api/mobile/logout", tokenOverride = oldToken) }
+        }
+        goToLogin(reason)
+    }
 
     /**
      * Semua halaman: isi layout + baris kredit di paling bawah
@@ -154,5 +238,12 @@ abstract class BaseActivity : AppCompatActivity() {
     /** Buka layar Cetak QR untuk Plan [code]. */
     protected fun openPrint(code: String) {
         startActivity(Intent(this, PrintActivity::class.java).putExtra(PlanActivity.EXTRA_CODE, code))
+    }
+
+    companion object {
+        private const val IDLE_LIMIT_MS = 60L * 60_000L     // 1 jam tidak disentuh (aplikasi terbuka)
+        private const val CLOSED_LIMIT_MS = 30L * 60_000L   // 30 menit tidak dibuka
+        private var startedActivities = 0
+        private var lastTouchSaved = 0L
     }
 }

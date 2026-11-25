@@ -14,6 +14,8 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 class LoginActivity : BaseActivity() {
+    override val sessionGuard = false
+
     private lateinit var nik: TextInputEditText
     private lateinit var password: TextInputEditText
     private lateinit var errorText: TextView
@@ -85,6 +87,8 @@ class LoginActivity : BaseActivity() {
                 is ApiResult.Response -> {
                     if (r.ok && r.json.optString("token").isNotBlank()) {
                         prefs.token = r.json.getString("token")
+                        prefs.lastActiveAt = System.currentTimeMillis() // mulai hitung sesi
+                        prefs.backgroundAt = 0L
                         prefs.saveUser(r.json.optJSONObject("user"), n)
                         password.setText("")
                         val i = Intent(this@LoginActivity, MainActivity::class.java)

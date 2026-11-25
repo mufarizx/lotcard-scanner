@@ -76,6 +76,15 @@ class ManualInputActivity : BaseActivity() {
     private var shiftGroups: List<String> = emptyList()
     private var currentGroup = ""
     private var groupBtn: MaterialButton? = null
+    // Isi cepat tetap diingat selama halaman ini terbuka (25 Nov 2026):
+    // tanggal/shift, dan Line/Grup yang DIPILIH pengguna (null = tebak otomatis).
+    private var applyDate = ""
+    private var applyShift = ""
+    private var chosenLine: String? = null
+    private var chosenGroup: String? = null
+    // Isian lembar sebelum Simpan Lot / BOM → dipasang lagi setelah dimuat ulang.
+    private var pendingSnapshot: JSONObject? = null
+    private var pendingScrollY = -1
 
     // Lot Material (Assembly)
     private val lotGroups = mutableListOf<LotGroup>()
@@ -354,10 +363,9 @@ class ManualInputActivity : BaseActivity() {
         if (!locked) {
             val box = card(Color.parseColor("#EFF6FF"))
             box.addView(label("Isi cepat sub-proses yang belum tersimpan", 13f, Color.parseColor("#1E40AF"), true))
-            var applyDate = today
-            var applyShift = ""
+            if (applyDate.isBlank()) applyDate = today
             val dBtn = pickButton(showDate(applyDate))
-            val sBtn = pickButton("Shift")
+            val sBtn = pickButton(if (applyShift.isBlank()) "Shift" else "Shift $applyShift")
             dBtn.setOnClickListener { pickDate(applyDate) { d -> applyDate = d; dBtn.text = showDate(d) } }
             sBtn.setOnClickListener {
                 PickerDialog.show(this, "Shift", listOf(PickOption("1", "Shift 1"), PickOption("2", "Shift 2"))) { p ->
@@ -373,6 +381,7 @@ class ManualInputActivity : BaseActivity() {
             val lineOpts = (0 until presets.length()).mapNotNull { i -> presets.optJSONObject(i)?.optString("name")?.let { PickOption(it, it) } }
             lBtn.setOnClickListener {
                 PickerDialog.show(this, "Line", listOf(PickOption("", "— Tanpa Line —")) + lineOpts) { p ->
+                    chosenLine = p.value
                     setCurrentLine((0 until presets.length()).mapNotNull { presets.optJSONObject(it) }.firstOrNull { it.optString("name") == p.value })
                     applyPresets("", "") // Line + Grup dipilih → langsung terisi (25 Nov 2026)
                 }
@@ -381,6 +390,7 @@ class ManualInputActivity : BaseActivity() {
             groupBtn = gBtn
             gBtn.setOnClickListener {
                 PickerDialog.show(this, "Grup", listOf(PickOption("", "— Tanpa Grup —")) + shiftGroups.map { PickOption(it, "Grup $it") }) { p ->
+                    chosenGroup = p.value
                     setCurrentGroup(p.value)
                     applyPresets("", "")
                 }
@@ -450,6 +460,14 @@ class ManualInputActivity : BaseActivity() {
         } else {
             refreshNikPicks()
         }
+        // Line/Grup yang dipilih sendiri tetap dipakai setelah muat ulang.
+        if (linePresets.length() > 0 && lineBtn != null) {
+            chosenLine?.let { name -> currentLine = (0 until linePresets.length()).mapNotNull { linePresets.optJSONObject(it) }.firstOrNull { it.optString("name") == name } }
+            lineBtn?.text = currentLine?.optString("name") ?: "Line"
+            chosenGroup?.let { g -> currentGroup = if (g in shiftGroups) g else "" }
+            groupBtn?.text = if (currentGroup.isBlank()) "Grup" else "Grup $currentGroup"
+            refreshNikPicks()
+        }
 
         // Hasil
         content.addView(label("2. Hasil", 16f, bold = true).apply { setPadding(dp(4), dp(6), 0, dp(6)) })
@@ -483,8 +501,61 @@ class ManualInputActivity : BaseActivity() {
             findViewById<View>(R.id.actions).visibility = View.VISIBLE
             setButtons(true)
         }
+        pendingSnapshot?.let { if (!locked) restoreSnapshot(it) }
+        pendingSnapshot = null
         recalc()
-        scroll.scrollTo(0, 0)
+        val y = pendingScrollY
+        pendingScrollY = -1
+        if (y >= 0) scroll.post { scroll.scrollTo(0, y) } else scroll.scrollTo(0, 0)
+    }
+
+    // ── Isian tetap ada setelah Simpan Lot / BOM (25 Nov 2026) ─────────
+    private fun snapshotForm(): JSONObject {
+        val stepsJson = JSONObject()
+        for (st in steps) {
+            val o = JSONObject().put("done", st.done.isChecked).put("work_date", st.workDate).put("shift", st.shift)
+                .put("nik", st.nik.text.toString()).put("line_id", st.lineId)
+                .put("machine_text", st.machineText?.text?.toString() ?: JSONObject.NULL)
+            val ps = JSONObject()
+            for ((field, e) in st.params) ps.put(field, e.text.toString())
+            o.put("params", ps)
+            stepsJson.put(st.order.toString(), o)
+        }
+        val ng = JSONArray()
+        for (r in ngRows) ng.put(JSONObject().put("position", r.position).put("category_id", r.categoryId).put("qty", r.qty.text.toString()))
+        return JSONObject().put("steps", stepsJson).put("qty_check", checkInput?.text?.toString().orEmpty()).put("ng", ng)
+    }
+
+    private fun restoreSnapshot(snap: JSONObject) {
+        val ss = snap.optJSONObject("steps") ?: JSONObject()
+        for (st in steps) {
+            val o = ss.optJSONObject(st.order.toString()) ?: continue
+            st.workDate = o.optString("work_date")
+            st.dateBtn.text = if (st.workDate.isBlank()) "Tanggal" else showDate(st.workDate)
+            st.shift = o.optString("shift")
+            st.shiftBtn.text = if (st.shift.isBlank()) "Shift" else "Shift ${st.shift}"
+            st.nik.setText(o.optString("nik"))
+            val lid = o.optString("line_id")
+            val opt = st.machineOptions.firstOrNull { it.value == lid }
+            if (opt != null) { st.lineId = opt.value; st.machineBtn?.text = opt.label }
+            else if (lid.isBlank() && st.machineBtn != null) { st.lineId = ""; st.machineBtn?.text = "Pilih mesin" }
+            if (!o.isNull("machine_text")) st.machineText?.setText(o.optString("machine_text"))
+            val ps = o.optJSONObject("params")
+            if (ps != null) for ((field, e) in st.params) if (ps.has(field)) e.setText(ps.optString(field))
+            if (!st.saved) st.done.isChecked = o.optBoolean("done") // terakhir: isian di atas bisa mencentang otomatis
+        }
+        checkInput?.setText(snap.optString("qty_check"))
+        val box = ngBox
+        if (box != null) {
+            for (r in ngRows.toList()) box.removeView(r.view)
+            ngRows.clear()
+            val ng = snap.optJSONArray("ng") ?: JSONArray()
+            for (i in 0 until ng.length()) {
+                val n = ng.optJSONObject(i) ?: continue
+                addNgRow(n.optString("position"), n.optString("category_id"), n.optString("qty").toIntOrNull() ?: 0)
+            }
+        }
+        refreshNikPicks()
     }
 
     // ── Lot Material ──────────────────────────────────────────────────
@@ -652,7 +723,11 @@ class ManualInputActivity : BaseActivity() {
                         .setTitle("Tersimpan")
                         .setMessage(r.message)
                         .setCancelable(false)
-                        .setPositiveButton("OK") { _, _ -> load() }
+                        .setPositiveButton("OK") { _, _ ->
+                            pendingSnapshot = snapshotForm() // isian lembar yang belum disimpan tidak hilang
+                            pendingScrollY = scroll.scrollY
+                            load()
+                        }
                         .show()
                     r.code == 401 -> goToLogin(r.message)
                     else -> showMessage("$what belum tersimpan", errorDetail(r.json, r.message))

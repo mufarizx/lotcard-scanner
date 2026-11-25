@@ -12,6 +12,8 @@ import kotlinx.coroutines.launch
 
 /** Alamat server lokal & publik + tes koneksi + sertifikat yang dipercaya. */
 class SettingsActivity : BaseActivity() {
+    override val sessionGuard = false
+
     private lateinit var localUrl: TextInputEditText
     private lateinit var publicUrl: TextInputEditText
     private lateinit var testResult: TextView

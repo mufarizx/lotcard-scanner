@@ -108,6 +108,15 @@ class Prefs(context: Context) {
         canPrint = f?.optBoolean("print", true) ?: true
     }
 
+    // Sesi login (25 Nov 2026): waktu terakhir dipakai & waktu aplikasi ditinggal (ms).
+    var lastActiveAt: Long
+        get() = sp.getLong(KEY_LAST_ACTIVE, 0L)
+        set(v) = sp.edit().putLong(KEY_LAST_ACTIVE, v).apply()
+
+    var backgroundAt: Long
+        get() = sp.getLong(KEY_BACKGROUND_AT, 0L)
+        set(v) = sp.edit().putLong(KEY_BACKGROUND_AT, v).apply()
+
     var settingsSaved: Boolean
         get() = sp.getBoolean(KEY_SETTINGS_SAVED, false)
         set(v) = sp.edit().putBoolean(KEY_SETTINGS_SAVED, v).apply()
@@ -135,7 +144,8 @@ class Prefs(context: Context) {
     }
 
     fun clearSession() {
-        sp.edit().remove(KEY_TOKEN).remove(KEY_USER_NAME).remove(KEY_USER_NIK).apply()
+        sp.edit().remove(KEY_TOKEN).remove(KEY_USER_NAME).remove(KEY_USER_NIK)
+            .remove(KEY_LAST_ACTIVE).remove(KEY_BACKGROUND_AT).apply()
     }
 
     companion object {
@@ -147,6 +157,8 @@ class Prefs(context: Context) {
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_USER_NIK = "user_nik"
         private const val KEY_SETTINGS_SAVED = "settings_saved"
+        private const val KEY_LAST_ACTIVE = "last_active_at"
+        private const val KEY_BACKGROUND_AT = "background_at"
         private const val KEY_CAN_VIEW = "can_view"
         private const val KEY_CAN_INPUT = "can_input"
         private const val KEY_CAN_MANUAL = "can_manual"

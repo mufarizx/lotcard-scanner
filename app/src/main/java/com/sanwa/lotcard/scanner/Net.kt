@@ -109,6 +109,7 @@ class ApiClient(context: Context) {
         body: JSONObject? = null,
         withToken: Boolean = true,
         onlyBaseUrl: String? = null,
+        tokenOverride: String? = null,
     ): ApiResult = withContext(Dispatchers.IO) {
         val urls = if (onlyBaseUrl != null) listOf(onlyBaseUrl) else prefs.baseUrls()
         if (urls.isEmpty()) return@withContext ApiResult.NetworkError("Alamat server belum diisi. Buka Pengaturan server.")
@@ -123,7 +124,7 @@ class ApiClient(context: Context) {
             val builder = Request.Builder()
                 .url(base + path)
                 .header("Accept", "application/json")
-            if (withToken) prefs.token?.let { builder.header("Authorization", "Bearer $it") }
+            if (withToken) (tokenOverride ?: prefs.token)?.let { builder.header("Authorization", "Bearer $it") }
             if (method == "POST") {
                 val json = (body ?: JSONObject()).toString()
                 builder.post(json.toRequestBody("application/json; charset=utf-8".toMediaType()))
