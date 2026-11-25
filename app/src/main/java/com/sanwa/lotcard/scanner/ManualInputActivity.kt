@@ -374,6 +374,7 @@ class ManualInputActivity : BaseActivity() {
             lBtn.setOnClickListener {
                 PickerDialog.show(this, "Line", listOf(PickOption("", "— Tanpa Line —")) + lineOpts) { p ->
                     setCurrentLine((0 until presets.length()).mapNotNull { presets.optJSONObject(it) }.firstOrNull { it.optString("name") == p.value })
+                    applyPresets("", "") // Line + Grup dipilih → langsung terisi (25 Nov 2026)
                 }
             }
             val gBtn = pickButton("Grup")
@@ -381,6 +382,7 @@ class ManualInputActivity : BaseActivity() {
             gBtn.setOnClickListener {
                 PickerDialog.show(this, "Grup", listOf(PickOption("", "— Tanpa Grup —")) + shiftGroups.map { PickOption(it, "Grup $it") }) { p ->
                     setCurrentGroup(p.value)
+                    applyPresets("", "")
                 }
             }
             val apply = smallButton("Terapkan")
@@ -389,18 +391,7 @@ class ManualInputActivity : BaseActivity() {
                     showMessage("Pilih Grup", "Pilih Grup (A/B) juga — operator diisi dari Preset Line sesuai Line dan Grup.")
                     return@setOnClickListener
                 }
-                val byOrder = presetByOrder(currentLine)
-                for (st in steps) {
-                    if (st.saved) continue
-                    if (applyDate.isNotBlank()) { st.workDate = applyDate; st.dateBtn.text = showDate(applyDate) }
-                    if (applyShift.isNotBlank()) { st.shift = applyShift; st.shiftBtn.text = "Shift $applyShift" }
-                    val pr = byOrder[st.order] ?: continue
-                    val nik = groupOf(pr)?.str("operator_nik")
-                    if (!nik.isNullOrBlank()) { st.nik.setText(nik); st.done.isChecked = true } // operator inti
-                    val lineId = if (pr.isNull("line_id")) "" else pr.optInt("line_id").toString()
-                    val opt = st.machineOptions.firstOrNull { it.value == lineId }
-                    if (opt != null) { st.lineId = opt.value; st.machineBtn?.text = opt.label }
-                }
+                applyPresets(applyDate, applyShift)
             }
             if (lineOpts.isNotEmpty() && !subcont) {
                 box.addView(row(weighted(dBtn, 1.3f, dp(6)), weighted(sBtn, 1f)))
@@ -686,6 +677,38 @@ class ManualInputActivity : BaseActivity() {
         currentLine = line
         lineBtn?.text = line?.optString("name") ?: "Line"
         refreshNikPicks()
+    }
+
+    /**
+     * Isi mesin (Line) & operator inti (Line + Grup) ke sub-proses yang belum
+     * tersimpan, plus tanggal/shift bila diisi (tombol Terapkan).
+     * Dipanggil otomatis saat Line/Grup dipilih — hanya bila keduanya lengkap.
+     */
+    private fun applyPresets(date: String, shift: String) {
+        val withDateShift = date.isNotBlank() || shift.isNotBlank()
+        val line = currentLine
+        val presetReady = line != null && (shiftGroups.isEmpty() || currentGroup.isNotBlank())
+        if (!withDateShift && !presetReady) return
+        val byOrder = if (presetReady) presetByOrder(line) else emptyMap()
+        var filled = 0
+        var skipped = 0
+        for (st in steps) {
+            if (st.saved) { if (presetReady) skipped++; continue }
+            if (date.isNotBlank()) { st.workDate = date; st.dateBtn.text = showDate(date) }
+            if (shift.isNotBlank()) { st.shift = shift; st.shiftBtn.text = "Shift $shift" }
+            val pr = byOrder[st.order] ?: continue
+            val nik = groupOf(pr)?.str("operator_nik")
+            if (!nik.isNullOrBlank()) { st.nik.setText(nik); st.done.isChecked = true; filled++ } // operator inti
+            val lineId = if (pr.isNull("line_id")) "" else pr.optInt("line_id").toString()
+            val opt = st.machineOptions.firstOrNull { it.value == lineId }
+            if (opt != null) { st.lineId = opt.value; st.machineBtn?.text = opt.label }
+        }
+        if (presetReady) {
+            val who = line!!.optString("name") + if (currentGroup.isNotBlank()) " Grup $currentGroup" else ""
+            var msg = "$who: $filled sub-proses terisi operator."
+            if (skipped > 0) msg += " $skipped sub-proses sudah tersimpan tidak diubah — ganti lewat ▼ Operator."
+            android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun setCurrentGroup(group: String) {
