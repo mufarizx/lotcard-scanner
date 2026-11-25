@@ -51,6 +51,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_CAN_PRINT, true)
         set(v) = sp.edit().putBoolean(KEY_CAN_PRINT, v).apply()
 
+    /** Menu Dashboard (Admin, Input Manual, Super Admin). */
+    var canDashboard: Boolean
+        get() = sp.getBoolean(KEY_CAN_DASHBOARD, false)
+        set(v) = sp.edit().putBoolean(KEY_CAN_DASHBOARD, v).apply()
+
     // ── Printer label Bluetooth (Iware MP-581RL / ESC/POS 58 mm) ─────────
     /** Alamat MAC printer Bluetooth yang dipilih (sudah di-pair di Android). */
     var printerAddress: String
@@ -106,6 +111,7 @@ class Prefs(context: Context) {
         canInput = f?.optBoolean("input", false) ?: false
         canManual = f?.optBoolean("manual", false) ?: false
         canPrint = f?.optBoolean("print", true) ?: true
+        canDashboard = f?.optBoolean("dashboard", false) ?: false
     }
 
     // Sesi login (25 Nov 2026): waktu terakhir dipakai & waktu aplikasi ditinggal (ms).
@@ -158,6 +164,7 @@ class Prefs(context: Context) {
         private const val KEY_USER_NIK = "user_nik"
         private const val KEY_SETTINGS_SAVED = "settings_saved"
         private const val KEY_LAST_ACTIVE = "last_active_at"
+        private const val KEY_CAN_DASHBOARD = "can_dashboard"
         private const val KEY_BACKGROUND_AT = "background_at"
         private const val KEY_CAN_VIEW = "can_view"
         private const val KEY_CAN_INPUT = "can_input"

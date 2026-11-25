@@ -19,6 +19,7 @@ class MainActivity : BaseActivity() {
     private lateinit var cardInput: MaterialCardView
     private lateinit var cardManual: MaterialCardView
     private lateinit var cardPrint: MaterialCardView
+    private lateinit var cardDashboard: MaterialCardView
     private lateinit var noFeature: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,6 +37,8 @@ class MainActivity : BaseActivity() {
         cardInput = findViewById(R.id.cardInput)
         cardManual = findViewById(R.id.cardManual)
         cardPrint = findViewById(R.id.cardPrint)
+        cardDashboard = findViewById(R.id.cardDashboard)
+        cardDashboard.setOnClickListener { startActivity(Intent(this, DashboardActivity::class.java)) }
         noFeature = findViewById(R.id.noFeature)
 
         cardView.setOnClickListener { openScanner(ScanActivity.MODE_VIEW) }
@@ -57,7 +60,8 @@ class MainActivity : BaseActivity() {
         cardInput.visibility = if (prefs.canInput) View.VISIBLE else View.GONE
         cardManual.visibility = if (prefs.canManual) View.VISIBLE else View.GONE
         cardPrint.visibility = if (prefs.canPrint) View.VISIBLE else View.GONE
-        noFeature.visibility = if (!prefs.canView && !prefs.canInput && !prefs.canManual) View.VISIBLE else View.GONE
+        cardDashboard.visibility = if (prefs.canDashboard) View.VISIBLE else View.GONE
+        noFeature.visibility = if (!prefs.canView && !prefs.canInput && !prefs.canManual && !prefs.canDashboard) View.VISIBLE else View.GONE
     }
 
     private fun openScanner(mode: String) {
