@@ -72,8 +72,8 @@ class ScanActivity : BaseActivity() {
         setContentView(R.layout.activity_scan)
         setupToolbar(
             when (mode) {
-                MODE_INPUT -> "Scan — Input Perolehan"
-                MODE_MANUAL -> "Scan — Input Manual"
+                MODE_INPUT -> "Scan — Input Hasil Auto"
+                MODE_MANUAL -> "Scan — Input Hasil Manual"
                 MODE_PRINT -> "Scan — Cetak QR"
                 else -> "Scan — Lihat Data"
             },

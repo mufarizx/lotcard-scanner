@@ -12,7 +12,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 
-/** Halaman utama: pilih fitur Lihat Data Plan / Input Perolehan / Input Manual (sesuai izin akun). */
+/** Halaman utama: pilih fitur Dashboard / Lihat Data Plan / Input Hasil Auto / Input Hasil Manual / Cetak QR (sesuai izin akun). */
 class MainActivity : BaseActivity() {
     private lateinit var welcome: TextView
     private lateinit var cardView: MaterialCardView
@@ -33,6 +33,7 @@ class MainActivity : BaseActivity() {
         setupToolbar(getString(R.string.app_name), back = false)
 
         welcome = findViewById(R.id.welcome)
+        findViewById<View>(R.id.btnLogout).setOnClickListener { confirmLogout() }
         cardView = findViewById(R.id.cardView)
         cardInput = findViewById(R.id.cardInput)
         cardManual = findViewById(R.id.cardManual)
@@ -76,9 +77,6 @@ class MainActivity : BaseActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
         R.id.menu_settings -> {
             startActivity(Intent(this, SettingsActivity::class.java)); true
-        }
-        R.id.menu_logout -> {
-            confirmLogout(); true
         }
         else -> super.onOptionsItemSelected(item)
     }

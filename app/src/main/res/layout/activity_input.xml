@@ -12,7 +12,7 @@
         android:background="@color/brand"
         android:theme="@style/ThemeOverlay.Material3.Dark.ActionBar"
         app:popupTheme="@style/ToolbarPopup"
-        app:title="Input Perolehan" />
+        app:title="Input Hasil Auto" />
 
     <FrameLayout
         android:layout_width="match_parent"

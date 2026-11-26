@@ -109,7 +109,7 @@ class InputActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_input)
         code = intent.getStringExtra(PlanActivity.EXTRA_CODE).orEmpty()
-        setupToolbar("Input — $code", back = true)
+        setupToolbar("Input Hasil Auto — $code", back = true)
 
         content = findViewById(R.id.content)
         progress = findViewById(R.id.progress)
@@ -279,6 +279,33 @@ class InputActivity : BaseActivity() {
         head.addView(label(statusText, 13f, if (res.optString("status") == "rejected") Color.parseColor("#DC2626") else Color.parseColor("#6B7280")).apply {
             setPadding(0, dp(6), 0, 0)
         })
+
+        // Admin: Approve / Tolak hasil yang sudah dikirim operator (26 Nov 2026),
+        // aturan sama dengan tombol Approve/Reject di web (ResultApprovalService).
+        if (canApprove && res.optString("status") == "pending") {
+            val (_, ab) = card(bg = Color.parseColor("#FFFBEB"))
+            ab.addView(label("Menunggu approval", 15f, Color.parseColor("#92400E"), true))
+            ab.addView(label("Periksa perolehan di bawah, lalu Approve atau Tolak. Hasil yang diubah di form ini harus dikirim ulang dulu sebelum di-approve.", 12f, Color.parseColor("#6B7280")))
+            val approveBtn = MaterialButton(this).apply { text = "Approve"; isAllCaps = false }
+            val rejectBtn = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                text = "Tolak"; isAllCaps = false; setTextColor(Color.parseColor("#B91C1C"))
+            }
+            approveBtn.setOnClickListener {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("Approve $stageLabelText?")
+                    .setMessage("Hasil ini akan di-approve dan proses berikutnya dibuka.")
+                    .setPositiveButton("Approve") { _, _ -> sendApproval(planLotId, stage, "approved", null) { finish() } }
+                    .setNegativeButton("Batal", null)
+                    .show()
+            }
+            rejectBtn.setOnClickListener { askRejectNotes(planLotId, stage) { load() } }
+            ab.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, dp(8), 0, 0)
+                addView(rejectBtn, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(6) })
+                addView(approveBtn, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.4f))
+            })
+        }
 
         // Bagian 1 — operator utama
         val primaryName = json.optJSONObject("primary_operator")?.str("name") ?: "—"

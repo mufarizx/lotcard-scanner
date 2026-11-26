@@ -121,7 +121,7 @@ class ManualInputActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_manual)
         code = intent.getStringExtra(PlanActivity.EXTRA_CODE).orEmpty()
-        setupToolbar("Input Manual — $code", back = true)
+        setupToolbar("Input Hasil Manual — $code", back = true)
 
         content = findViewById(R.id.content)
         progress = findViewById(R.id.progress)
@@ -274,7 +274,7 @@ class ManualInputActivity : BaseActivity() {
         subcont = json.optBoolean("subcont")
         startQty = if (json.isNull("start_qty")) null else json.optInt("start_qty")
         today = json.optString("today")
-        supportActionBar?.title = "Input Manual — " + (plan.str("lot_id") ?: code)
+        supportActionBar?.title = "Input Hasil Manual — " + (plan.str("lot_id") ?: code)
 
         val cats = json.optJSONArray("ng_categories") ?: JSONArray()
         ngOptions = (0 until cats.length()).mapNotNull { i ->

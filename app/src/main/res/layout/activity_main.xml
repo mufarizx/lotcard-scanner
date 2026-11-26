@@ -132,7 +132,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Input Perolehan"
+                        android:text="Input Hasil Auto"
                         android:textColor="#166534"
                         android:textSize="20sp"
                         android:textStyle="bold" />
@@ -167,7 +167,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Input Manual"
+                        android:text="Input Hasil Manual"
                         android:textColor="#92400E"
                         android:textSize="20sp"
                         android:textStyle="bold" />
@@ -226,6 +226,30 @@
                 android:text="Akun Anda belum diberi fitur apa pun di aplikasi ini. Hubungi Super Admin."
                 android:textColor="#DC2626"
                 android:visibility="gone" />
+
+            <!-- Tombol Logout di bawah (26 Nov 2026), menggantikan menu titik tiga. -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnLogout"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="4dp"
+                android:minHeight="52dp"
+                android:text="Logout"
+                android:textAllCaps="false"
+                android:textColor="#B91C1C"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="#FFFFFF"
+                app:cornerRadius="14dp"
+                app:icon="@android:drawable/ic_lock_power_off"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp"
+                app:iconTint="#B91C1C"
+                app:rippleColor="#FECACA"
+                app:strokeColor="#FCA5A5"
+                app:strokeWidth="1.5dp" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
