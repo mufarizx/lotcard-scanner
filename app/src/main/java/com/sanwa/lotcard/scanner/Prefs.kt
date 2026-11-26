@@ -61,7 +61,31 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_CAN_DASHBOARD, false)
         set(v) = sp.edit().putBoolean(KEY_CAN_DASHBOARD, v).apply()
 
-    // ── Printer label Bluetooth (Iware MP-581RL / ESC/POS 58 mm) ─────────
+    // ── Printer label: Bluetooth (Iware MP-581RL 58 mm) atau WiFi/LAN (HPRT XT300, 26 Nov 2026) ──
+    /** "bt" = Bluetooth, "net" = WiFi/LAN (TCP, biasanya port 9100). */
+    var printerType: String
+        get() = sp.getString(KEY_PRINTER_TYPE, "bt") ?: "bt"
+        set(v) = sp.edit().putString(KEY_PRINTER_TYPE, v).apply()
+
+    val printerIsNetwork: Boolean get() = printerType == "net"
+
+    /** IP / nama host printer WiFi/LAN. */
+    var printerHost: String
+        get() = sp.getString(KEY_PRINTER_HOST, "") ?: ""
+        set(v) = sp.edit().putString(KEY_PRINTER_HOST, v).apply()
+
+    var printerPort: Int
+        get() = sp.getInt(KEY_PRINTER_PORT, 9100)
+        set(v) = sp.edit().putInt(KEY_PRINTER_PORT, v).apply()
+
+    /** Lebar area cetak / lebar label TSPL (mm). 58 mm Bluetooth = 48; printer label 4 inci dengan label 30 mm = 30. */
+    var printerWidthMm: Float
+        get() = sp.getFloat(pk(KEY_PRINTER_WIDTH), if (printerIsNetwork) 30f else 48f)
+        set(v) = sp.edit().putFloat(pk(KEY_PRINTER_WIDTH), v).apply()
+
+    /** Pengaturan kalibrasi disimpan terpisah per jenis printer (Bluetooth / WiFi-LAN). */
+    private fun pk(key: String) = if (printerIsNetwork) key + "_net" else key
+
     /** Alamat MAC printer Bluetooth yang dipilih (sudah di-pair di Android). */
     var printerAddress: String
         get() = sp.getString(KEY_PRINTER_ADDR, "") ?: ""
@@ -73,38 +97,38 @@ class Prefs(context: Context) {
 
     /** Jarak tepi kiri area cetak ke label (mm). Default 18 = label 30 mm rata kanan area cetak 48 mm (sama dengan cetak RawBT dari web). */
     var printerOffsetMm: Float
-        get() = sp.getFloat(KEY_PRINTER_OFFSET, 18f)
-        set(v) = sp.edit().putFloat(KEY_PRINTER_OFFSET, v).apply()
+        get() = sp.getFloat(pk(KEY_PRINTER_OFFSET), if (printerIsNetwork) 0f else 18f)
+        set(v) = sp.edit().putFloat(pk(KEY_PRINTER_OFFSET), v).apply()
 
     /** Geser cetakan ke bawah (mm) di awal label — untuk kalibrasi posisi vertikal. */
     var printerTopMm: Float
-        get() = sp.getFloat(KEY_PRINTER_TOP, 0f)
-        set(v) = sp.edit().putFloat(KEY_PRINTER_TOP, v).apply()
+        get() = sp.getFloat(pk(KEY_PRINTER_TOP), 0f)
+        set(v) = sp.edit().putFloat(pk(KEY_PRINTER_TOP), v).apply()
 
     /** Jarak antar label (gap) dalam mm — dimajukan setelah tiap label. */
     var printerGapMm: Float
-        get() = sp.getFloat(KEY_PRINTER_GAP, 2f)
-        set(v) = sp.edit().putFloat(KEY_PRINTER_GAP, v).apply()
+        get() = sp.getFloat(pk(KEY_PRINTER_GAP), 2f)
+        set(v) = sp.edit().putFloat(pk(KEY_PRINTER_GAP), v).apply()
 
     /** true = kirim perintah "cari label berikutnya" (GS FF) setelah cetak, bukan maju sejauh gap. */
     var printerUseGsFf: Boolean
-        get() = sp.getBoolean(KEY_PRINTER_GSFF, false)
-        set(v) = sp.edit().putBoolean(KEY_PRINTER_GSFF, v).apply()
+        get() = sp.getBoolean(pk(KEY_PRINTER_GSFF), false)
+        set(v) = sp.edit().putBoolean(pk(KEY_PRINTER_GSFF), v).apply()
 
     /** Bahasa printer: true = TSPL (mode label, seperti RawBT "TSPL"), false = ESC/POS (struk). */
     var printerTspl: Boolean
-        get() = sp.getBoolean(KEY_PRINTER_TSPL, true)
-        set(v) = sp.edit().putBoolean(KEY_PRINTER_TSPL, v).apply()
+        get() = sp.getBoolean(pk(KEY_PRINTER_TSPL), true)
+        set(v) = sp.edit().putBoolean(pk(KEY_PRINTER_TSPL), v).apply()
 
     /** TSPL: balik warna gambar (bila hasil cetak hitam semua / terbalik). */
     var printerInvert: Boolean
-        get() = sp.getBoolean(KEY_PRINTER_INVERT, false)
-        set(v) = sp.edit().putBoolean(KEY_PRINTER_INVERT, v).apply()
+        get() = sp.getBoolean(pk(KEY_PRINTER_INVERT), false)
+        set(v) = sp.edit().putBoolean(pk(KEY_PRINTER_INVERT), v).apply()
 
     /** TSPL: putar hasil 180° (DIRECTION 1). */
     var printerRotate: Boolean
-        get() = sp.getBoolean(KEY_PRINTER_ROTATE, false)
-        set(v) = sp.edit().putBoolean(KEY_PRINTER_ROTATE, v).apply()
+        get() = sp.getBoolean(pk(KEY_PRINTER_ROTATE), false)
+        set(v) = sp.edit().putBoolean(pk(KEY_PRINTER_ROTATE), v).apply()
 
     /** Simpan data user dari jawaban login / me. */
     fun saveUser(user: org.json.JSONObject?, fallbackNik: String = "") {
@@ -186,6 +210,10 @@ class Prefs(context: Context) {
         private const val KEY_PRINTER_TSPL = "printer_tspl"
         private const val KEY_PRINTER_INVERT = "printer_invert"
         private const val KEY_PRINTER_ROTATE = "printer_rotate"
+        private const val KEY_PRINTER_TYPE = "printer_type"
+        private const val KEY_PRINTER_HOST = "printer_host"
+        private const val KEY_PRINTER_PORT = "printer_port"
+        private const val KEY_PRINTER_WIDTH = "printer_width_mm"
         private const val KEY_PINS = "pinned_fingerprints"
 
         /** "200.200.64.4:2443/" → "https://200.200.64.4:2443" */

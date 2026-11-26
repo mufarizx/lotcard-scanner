@@ -135,10 +135,17 @@ object LabelRenderer {
         return out
     }
 
-    /** Gambar selebar area cetak (384 titik) dengan kartu digeser [offsetMm] dari kiri. Bit 1 = hitam. */
-    private fun rasterRows(card: Bitmap, offsetMm: Float): Pair<ByteArray, Int> {
-        val offset = (offsetMm * DOTS_PER_MM).roundToInt().coerceIn(0, PRINT_WIDTH - card.width)
-        val widthBytes = PRINT_WIDTH / 8
+    /** Lebar area cetak dalam titik (kelipatan 8, minimal selebar kartu 30 mm, maksimal 104 mm). */
+    fun widthDots(widthMm: Float): Int {
+        val d = (widthMm * DOTS_PER_MM).roundToInt().coerceIn(CARD_W, 104 * DOTS_PER_MM)
+        return (d + 7) / 8 * 8
+    }
+
+    /** Gambar selebar area cetak ([widthMm], default 48 mm = 384 titik) dengan kartu digeser [offsetMm] dari kiri. Bit 1 = hitam. */
+    private fun rasterRows(card: Bitmap, offsetMm: Float, widthMm: Float): Pair<ByteArray, Int> {
+        val printWidth = widthDots(widthMm)
+        val offset = (offsetMm * DOTS_PER_MM).roundToInt().coerceIn(0, printWidth - card.width)
+        val widthBytes = printWidth / 8
         val height = card.height
         val raster = ByteArray(widthBytes * height)
         val px = IntArray(card.width * height)
@@ -159,13 +166,15 @@ object LabelRenderer {
      * (48 mm) dengan kartu 30 × 20 mm digeser [offsetMm] dari kiri, tinggi
      * label 20 mm + [gapMm]. BITMAP TSPL: bit 0 = hitam (dibalik bila [invert]).
      */
-    fun tspl(card: Bitmap, offsetMm: Float, topMm: Float, gapMm: Float, copies: Int, invert: Boolean, rotate180: Boolean): ByteArray {
-        val (raster, widthBytes) = rasterRows(card, offsetMm)
+    fun tspl(card: Bitmap, offsetMm: Float, topMm: Float, gapMm: Float, copies: Int, invert: Boolean, rotate180: Boolean,
+             widthMm: Float = PRINT_WIDTH / DOTS_PER_MM.toFloat()): ByteArray {
+        val (raster, widthBytes) = rasterRows(card, offsetMm, widthMm)
         val data = ByteArray(raster.size) { i -> if (invert) raster[i] else raster[i].toInt().inv().toByte() }
         val top = (topMm * DOTS_PER_MM).roundToInt().coerceIn(0, 80)
         val out = ByteArrayOutputStream()
         fun cmd(s: String) = out.write((s + "\r\n").toByteArray(Charsets.US_ASCII))
-        cmd("SIZE ${PRINT_WIDTH / DOTS_PER_MM} mm,${CARD_H / DOTS_PER_MM} mm")
+        val sizeMm = String.format(java.util.Locale.US, "%.1f", widthBytes * 8f / DOTS_PER_MM).removeSuffix(".0")
+        cmd("SIZE $sizeMm mm,${CARD_H / DOTS_PER_MM} mm")
         cmd("GAP ${String.format(java.util.Locale.US, "%.1f", gapMm)} mm,0 mm")
         cmd("DIRECTION ${if (rotate180) 1 else 0}")
         cmd("REFERENCE 0,0")
@@ -178,9 +187,10 @@ object LabelRenderer {
     }
 
     /** Perintah ESC/POS untuk 1 kartu (beberapa salinan). */
-    fun escPos(card: Bitmap, offsetMm: Float, topMm: Float, gapMm: Float, useGsFf: Boolean, copies: Int): ByteArray {
+    fun escPos(card: Bitmap, offsetMm: Float, topMm: Float, gapMm: Float, useGsFf: Boolean, copies: Int,
+               widthMm: Float = PRINT_WIDTH / DOTS_PER_MM.toFloat()): ByteArray {
         val top = (topMm * DOTS_PER_MM).roundToInt().coerceIn(0, 80)
-        val (raster, widthBytes) = rasterRows(card, offsetMm)
+        val (raster, widthBytes) = rasterRows(card, offsetMm, widthMm)
         val height = card.height
         val out = ByteArrayOutputStream()
         out.write(byteArrayOf(0x1B, 0x40)) // ESC @ — inisialisasi
@@ -256,6 +266,45 @@ object BluetoothPrinter {
             "Izin Bluetooth belum diberikan."
         } finally {
             try { socket?.close() } catch (_: IOException) {}
+        }
+    }
+}
+
+/**
+ * Printer WiFi/LAN (26 Nov 2026) — mis. HPRT XT300 dengan modul WiFi/Ethernet.
+ * Data TSPL/ESC-POS yang sama dikirim mentah lewat TCP (port 9100 = "RAW").
+ * Tablet & printer harus satu jaringan (atau jaringannya saling terhubung).
+ */
+object NetworkPrinter {
+    /** Kirim data ke printer. Mengembalikan null bila berhasil, atau pesan error. */
+    suspend fun send(host: String, port: Int, data: ByteArray): String? = withContext(Dispatchers.IO) {
+        if (host.isBlank()) return@withContext "Alamat IP printer belum diisi."
+        val socket = java.net.Socket()
+        try {
+            socket.connect(java.net.InetSocketAddress(host, port), 5000)
+            socket.soTimeout = 10000
+            val os = socket.getOutputStream()
+            var i = 0
+            while (i < data.size) {
+                val n = minOf(4096, data.size - i)
+                os.write(data, i, n)
+                i += n
+            }
+            os.flush()
+            Thread.sleep(500) // beri waktu printer menerima sebelum koneksi ditutup
+            null
+        } catch (e: java.net.SocketTimeoutException) {
+            "Printer $host:$port tidak menjawab (waktu habis). Pastikan printer menyala, IP-nya benar, dan tablet satu jaringan dengan printer."
+        } catch (e: java.net.UnknownHostException) {
+            "Alamat printer \"$host\" tidak dikenal. Periksa penulisan IP."
+        } catch (e: java.net.ConnectException) {
+            "Tidak bisa tersambung ke printer $host:$port. Pastikan printer menyala, IP & port benar (biasanya 9100), dan tablet satu jaringan dengan printer. (${e.message})"
+        } catch (e: IOException) {
+            "Gagal mengirim ke printer $host:$port. (${e.message})"
+        } catch (e: IllegalArgumentException) {
+            "Port printer tidak valid."
+        } finally {
+            try { socket.close() } catch (_: IOException) {}
         }
     }
 }

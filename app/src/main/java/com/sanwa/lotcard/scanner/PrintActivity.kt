@@ -51,7 +51,7 @@ class PrintActivity : BaseActivity() {
         errorText = findViewById(R.id.errorText)
         btnPrinter = findViewById(R.id.btnPrinter)
         findViewById<MaterialButton>(R.id.btnRetry).setOnClickListener { load() }
-        btnPrinter.setOnClickListener { withBluetooth { choosePrinter(null) } }
+        btnPrinter.setOnClickListener { choosePrinterType(null) }
         findViewById<MaterialButton>(R.id.btnPrinterSettings).setOnClickListener { printerSettings() }
         refreshPrinterButton()
         load()
@@ -60,7 +60,62 @@ class PrintActivity : BaseActivity() {
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
     private fun refreshPrinterButton() {
-        btnPrinter.text = if (prefs.printerAddress.isBlank()) "Pilih printer" else "Printer: " + prefs.printerName.ifBlank { prefs.printerAddress }
+        btnPrinter.text = when {
+            prefs.printerIsNetwork && prefs.printerHost.isNotBlank() -> "Printer WiFi/LAN: ${prefs.printerHost}:${prefs.printerPort}"
+            !prefs.printerIsNetwork && prefs.printerAddress.isNotBlank() -> "Printer Bluetooth: " + prefs.printerName.ifBlank { prefs.printerAddress }
+            else -> "Pilih printer"
+        }
+    }
+
+    /** Pilih jenis printer: Bluetooth (di-pair) atau WiFi/LAN (IP). */
+    private fun choosePrinterType(then: (() -> Unit)?) {
+        val opts = listOf(
+            PickOption("bt", "Printer Bluetooth (sudah di-pair) — mis. Iware MP-581RL"),
+            PickOption("net", "Printer WiFi / LAN (alamat IP) — mis. HPRT XT300"),
+        )
+        PickerDialog.show(this, "Jenis printer", opts) { p ->
+            if (p.value == "net") askNetworkPrinter(then)
+            else withBluetooth { choosePrinter(then) }
+        }
+    }
+
+    /** Isi IP & port printer WiFi/LAN. */
+    private fun askNetworkPrinter(then: (() -> Unit)?) {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
+        box.addView(label("Printer & tablet harus satu jaringan. IP printer bisa dilihat di halaman konfigurasi/self-test printer.", 12f, Color.parseColor("#6B7280")))
+        box.addView(label("Alamat IP printer", 13f, Color.parseColor("#374151")).apply { setPadding(0, dp(10), 0, 0) })
+        val host = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            hint = "contoh 200.200.65.50"
+            setText(prefs.printerHost)
+            setSingleLine()
+        }
+        box.addView(host)
+        box.addView(label("Port (umumnya 9100)", 13f, Color.parseColor("#374151")).apply { setPadding(0, dp(10), 0, 0) })
+        val port = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(prefs.printerPort.toString())
+            setSingleLine()
+        }
+        box.addView(port)
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Printer WiFi / LAN")
+            .setView(box)
+            .setPositiveButton("Simpan") { _, _ ->
+                val h = host.text.toString().trim()
+                val pt = port.text.toString().trim().toIntOrNull()
+                if (h.isBlank() || h.contains(' ') || h.contains('/') || pt == null || pt !in 1..65535) {
+                    showMessage("Printer WiFi / LAN", "Isi alamat IP printer (mis. 200.200.65.50) dan port 1–65535 (umumnya 9100).")
+                    return@setPositiveButton
+                }
+                prefs.printerType = "net"
+                prefs.printerHost = h
+                prefs.printerPort = pt
+                refreshPrinterButton()
+                then?.invoke()
+            }
+            .setNegativeButton("Batal", null)
+            .show()
     }
 
     private fun load() {
@@ -211,6 +266,7 @@ class PrintActivity : BaseActivity() {
             PickOption(d.address, "$name  (${d.address})")
         }
         PickerDialog.show(this, "Pilih printer (sudah di-pair)", opts) { p ->
+            prefs.printerType = "bt"
             prefs.printerAddress = p.value
             prefs.printerName = p.label.substringBefore("  (")
             refreshPrinterButton()
@@ -218,22 +274,27 @@ class PrintActivity : BaseActivity() {
         }
     }
 
-    private fun printBitmap(bmp: Bitmap, copies: Int): Unit = withBluetooth {
-        if (prefs.printerAddress.isBlank()) {
-            choosePrinter { printBitmap(bmp, copies) }
-            return@withBluetooth
+    private fun printBitmap(bmp: Bitmap, copies: Int) {
+        val network = prefs.printerIsNetwork
+        if (network && prefs.printerHost.isBlank()) { askNetworkPrinter { printBitmap(bmp, copies) }; return }
+        if (!network && prefs.printerAddress.isBlank()) { choosePrinterType { printBitmap(bmp, copies) }; return }
+        val send = {
+            val data = if (prefs.printerTspl)
+                LabelRenderer.tspl(bmp, prefs.printerOffsetMm, prefs.printerTopMm, prefs.printerGapMm, copies, prefs.printerInvert, prefs.printerRotate, prefs.printerWidthMm)
+            else
+                LabelRenderer.escPos(bmp, prefs.printerOffsetMm, prefs.printerTopMm, prefs.printerGapMm, prefs.printerUseGsFf, copies, prefs.printerWidthMm)
+            progress.visibility = View.VISIBLE
+            lifecycleScope.launch {
+                val err = if (network) NetworkPrinter.send(prefs.printerHost, prefs.printerPort, data)
+                          else BluetoothPrinter.send(this@PrintActivity, prefs.printerAddress, data)
+                progress.visibility = View.GONE
+                val name = if (network) "${prefs.printerHost}:${prefs.printerPort}" else prefs.printerName
+                if (err != null) showMessage("Gagal mencetak", err)
+                else showMessage("Terkirim", "$copies label dikirim ke printer $name.")
+            }
+            Unit
         }
-        val data = if (prefs.printerTspl)
-            LabelRenderer.tspl(bmp, prefs.printerOffsetMm, prefs.printerTopMm, prefs.printerGapMm, copies, prefs.printerInvert, prefs.printerRotate)
-        else
-            LabelRenderer.escPos(bmp, prefs.printerOffsetMm, prefs.printerTopMm, prefs.printerGapMm, prefs.printerUseGsFf, copies)
-        progress.visibility = View.VISIBLE
-        lifecycleScope.launch {
-            val err = BluetoothPrinter.send(this@PrintActivity, prefs.printerAddress, data)
-            progress.visibility = View.GONE
-            if (err != null) showMessage("Gagal mencetak", err)
-            else showMessage("Terkirim", "$copies label dikirim ke printer ${prefs.printerName}.")
-        }
+        if (network) send() else withBluetooth { send() }
     }
 
     // ── Pengaturan printer (kalibrasi posisi label) ───────────────────
@@ -250,13 +311,18 @@ class PrintActivity : BaseActivity() {
                 setSingleLine()
             }.also { box.addView(it) }
         }
-        box.addView(label("Label 30 × 20 mm, printer 58 mm (area cetak 48 mm).", 12f, Color.parseColor("#6B7280")))
+        box.addView(label(
+            if (prefs.printerIsNetwork) "Printer WiFi/LAN ${prefs.printerHost}:${prefs.printerPort} — label 30 × 20 mm. Untuk HPRT XT300 dengan label 30 mm: lebar 30, geser kanan 0."
+            else "Printer Bluetooth — label 30 × 20 mm, printer 58 mm (lebar area cetak 48 mm, geser kanan 18).",
+            12f, Color.parseColor("#6B7280")))
+        box.addView(label("Pengaturan ini disimpan terpisah untuk printer Bluetooth dan WiFi/LAN.", 11f, Color.parseColor("#6B7280")).apply { setPadding(0, dp(4), 0, 0) })
         val tspl = CheckBox(this).apply {
             text = "Mode label TSPL (sama dengan RawBT \"TSPL\") — matikan hanya untuk printer mode struk (ESC/POS)"
             isChecked = prefs.printerTspl
         }
         box.addView(tspl)
-        val offset = num("Geser ke kanan dari tepi kiri area cetak (mm, 0–18)", prefs.printerOffsetMm)
+        val width = num("Lebar area cetak / lebar label (mm, 30–104)", prefs.printerWidthMm)
+        val offset = num("Geser ke kanan dari tepi kiri area cetak (mm)", prefs.printerOffsetMm)
         val top = num("Geser ke bawah di awal label (mm, 0–10)", prefs.printerTopMm)
         val gap = num("Jarak antar label / gap (mm)", prefs.printerGapMm)
         val gsff = CheckBox(this).apply {
@@ -276,13 +342,16 @@ class PrintActivity : BaseActivity() {
         box.addView(gsff)
 
         fun saveFields(): Boolean {
+            val w = width.text.toString().replace(',', '.').toFloatOrNull()
             val o = offset.text.toString().replace(',', '.').toFloatOrNull()
             val t = top.text.toString().replace(',', '.').toFloatOrNull()
             val g = gap.text.toString().replace(',', '.').toFloatOrNull()
-            if (o == null || o < 0f || o > 18f || t == null || t < 0f || t > 10f || g == null || g < 0f || g > 50f) {
-                showMessage("Pengaturan printer", "Isi angka: geser kanan 0–18 mm, geser bawah 0–10 mm, gap 0–50 mm.")
+            val maxOffset = if (w != null) w - 30f else 0f
+            if (w == null || w < 30f || w > 104f || o == null || o < 0f || o > maxOffset || t == null || t < 0f || t > 10f || g == null || g < 0f || g > 50f) {
+                showMessage("Pengaturan printer", "Isi angka: lebar 30–104 mm, geser kanan 0–(lebar − 30) mm, geser bawah 0–10 mm, gap 0–50 mm.")
                 return false
             }
+            prefs.printerWidthMm = w
             prefs.printerOffsetMm = o
             prefs.printerTopMm = t
             prefs.printerGapMm = g
