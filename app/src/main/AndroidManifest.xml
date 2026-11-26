@@ -36,6 +36,7 @@
         <activity android:name=".ManualInputActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".PrintActivity" android:exported="false" />
         <activity android:name=".DashboardActivity" android:exported="false" />
+        <activity android:name=".ProductionActivity" android:exported="false" />
 
         <!-- Model QR ML Kit ikut di dalam APK (tidak perlu unduh dari Google Play). -->
         <meta-data
