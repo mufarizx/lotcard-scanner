@@ -138,6 +138,7 @@ class DashboardActivity : BaseActivity() {
         renderFilters(j)
         renderStats(j.optJSONObject("stats") ?: JSONObject())
         renderStages(j.optJSONArray("stages") ?: JSONArray())
+        j.optJSONObject("ppic")?.let { renderPpic(it) }
         renderMaintenance(j.optJSONArray("maintenance") ?: JSONArray())
         renderChart(j.optJSONArray("charts") ?: JSONArray())
         renderNg(j.optJSONArray("ng_ranking") ?: JSONArray())
@@ -259,6 +260,62 @@ class DashboardActivity : BaseActivity() {
             }
             box.addView(row(label(num(s.optDouble("rate", 0.0)) + "%  ", 13f, red, true), barRow).apply { setPadding(0, dp(4), 0, 0) })
         }
+    }
+
+    // Plan PPIC vs Actual (27 Nov 2026) — sama dengan kartu Dashboard web.
+    private fun renderPpic(p: JSONObject) {
+        val box = card()
+        box.addView(label("Plan PPIC vs Actual", 15f, textMain, true))
+        box.addView(label(if (productId != null) "Filter produk aktif" else "${p.optInt("product_count")} produk ber-plan/actual", 11f, textSm).apply { setPadding(0, 0, 0, dp(6)) })
+        val totals = p.optJSONArray("totals") ?: JSONArray()
+        for (i in 0 until totals.length()) {
+            val t = totals.optJSONObject(i) ?: continue
+            val plan = t.optInt("plan"); val actual = t.optInt("actual"); val bal = t.optInt("balance")
+            val pct = if (t.isNull("pct")) null else t.optInt("pct")
+            box.addView(label(t.optString("label"), 13f, textMain, true).apply { setPadding(0, dp(8), 0, dp(2)) })
+            box.addView(row(
+                weighted(LinearLayout(this).apply { orientation = LinearLayout.VERTICAL
+                    addView(label("Plan PPIC", 11f, textSm)); addView(label(fmt(plan), 18f, textMain, true)) }, 1f),
+                weighted(LinearLayout(this).apply { orientation = LinearLayout.VERTICAL
+                    addView(label("Actual", 11f, textSm)); addView(label(fmt(actual), 18f, green, true)) }, 1f),
+                weighted(LinearLayout(this).apply { orientation = LinearLayout.VERTICAL
+                    addView(label("Balance", 11f, textSm)); addView(label((if (bal > 0) "+" else "") + fmt(bal), 18f, if (bal < 0) red else textMain, true)) }, 1f),
+            ))
+            val fill = (pct ?: 0).coerceIn(0, 100)
+            box.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(6)).apply { topMargin = dp(4) }
+                background = rounded(Color.parseColor("#F3F4F6"), dp(3).toFloat())
+                clipToOutline = true
+                addView(View(context).apply { setBackgroundColor(if ((pct ?: 0) >= 100) green else amber); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, fill.toFloat().coerceAtLeast(0.001f)) })
+                addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, (100 - fill).toFloat().coerceAtLeast(0.001f)) })
+            })
+            box.addView(label(if (pct == null) "Belum ada plan PPIC" else "$pct% dari plan", 11f, textSm))
+        }
+        val rows = p.optJSONArray("rows") ?: JSONArray()
+        if (productId == null && rows.length() > 0) {
+            box.addView(label("Rincian per produk (ketuk untuk memfilter)", 12f, textSm, true).apply { setPadding(0, dp(10), 0, dp(4)) })
+            val labels = (0 until totals.length()).map { totals.optJSONObject(it)?.optString("label").orEmpty() }
+            val head = mutableListOf("Produk")
+            labels.forEach { head += "$it P"; head += "A" }
+            val tRows = mutableListOf<List<String>>(head)
+            val colors = mutableListOf<List<Int?>>(List(head.size) { null })
+            val ids = mutableListOf<String?>(null)
+            for (i in 0 until rows.length()) {
+                val r = rows.optJSONObject(i) ?: continue
+                val vals = r.optJSONArray("values") ?: JSONArray()
+                val cells = mutableListOf(r.optString("name") + "\n" + r.optString("code"))
+                val cs = mutableListOf<Int?>(null)
+                for (k in 0 until vals.length()) {
+                    val v = vals.optJSONObject(k) ?: continue
+                    cells += fmt(v.optInt("plan")); cs += null
+                    cells += fmt(v.optInt("actual")); cs += if (v.optInt("actual") < v.optInt("plan")) red else green
+                }
+                tRows += cells; colors += cs; ids += r.optString("product_id")
+            }
+            box.addView(table(tRows, colors) { r -> ids.getOrNull(r)?.let { filterProduct(it) } })
+        }
+        box.addView(label("Plan = isian P di halaman PPIC. Actual = Qty OK yang sudah di-approve.", 11f, textSm).apply { setPadding(0, dp(6), 0, 0) })
     }
 
     private fun renderMaintenance(list: JSONArray) {
